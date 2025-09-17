@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: c7faf8b5233fef24a8b6400db4aa8c24
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 286260
+  packageName: Rigged Dice
+  packageVersion: 1.2
+  assetPath: Assets/Plugins/Rigged Dice/Scripts/Data/FaceMap.cs
+  uploadId: 781578

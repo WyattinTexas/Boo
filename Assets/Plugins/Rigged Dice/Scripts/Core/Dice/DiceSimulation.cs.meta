@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 710e4dc261c153447a3684d65aeaa9a8
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 286260
+  packageName: Rigged Dice
+  packageVersion: 1.2
+  assetPath: Assets/Plugins/Rigged Dice/Scripts/Core/Dice/DiceSimulation.cs
+  uploadId: 781578

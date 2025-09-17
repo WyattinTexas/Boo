@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 58d94f904d8610e41b8162e6f6aafc52
+AssemblyDefinitionImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 286260
+  packageName: Rigged Dice
+  packageVersion: 1.2
+  assetPath: Assets/Plugins/Rigged Dice/Scripts/Editor/PredictedDiceEditor.asmdef
+  uploadId: 781578

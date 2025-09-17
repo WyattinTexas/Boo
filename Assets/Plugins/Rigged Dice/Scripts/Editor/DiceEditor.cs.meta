@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: cf1750b7e36b4c048a194f2002bbd5db
+timeCreated: 1715543383
+AssetOrigin:
+  serializedVersion: 1
+  productId: 286260
+  packageName: Rigged Dice
+  packageVersion: 1.2
+  assetPath: Assets/Plugins/Rigged Dice/Scripts/Editor/DiceEditor.cs
+  uploadId: 781578

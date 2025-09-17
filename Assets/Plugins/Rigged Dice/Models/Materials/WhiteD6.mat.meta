@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: f6a7ffcbb2964b042967da65ab36b8f0
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 286260
+  packageName: Rigged Dice
+  packageVersion: 1.2
+  assetPath: Assets/Plugins/Rigged Dice/Models/Materials/WhiteD6.mat
+  uploadId: 781578

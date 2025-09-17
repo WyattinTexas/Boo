@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: b18b16b2666b8314dbd3b67bc6cb554e
+TextScriptImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 286260
+  packageName: Rigged Dice
+  packageVersion: 1.2
+  assetPath: Assets/Plugins/Rigged Dice/Demos/Fonts/LICENSE.txt
+  uploadId: 781578

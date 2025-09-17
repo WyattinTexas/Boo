@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: d68c5b2e1be6991459ef7707bc05a032
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 286260
+  packageName: Rigged Dice
+  packageVersion: 1.2
+  assetPath: Assets/Plugins/Rigged Dice/Demos/Scripts/Utility/SetTextWithSlider.cs
+  uploadId: 781578

@@ -1,0 +1,16 @@
+{
+    "name": "PredictedDiceEditor",
+    "rootNamespace": "PredictedDice.Editor",
+    "references": [
+        "GUID:cc1d1ac5bcb524e419d1f5de67ea3f60"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

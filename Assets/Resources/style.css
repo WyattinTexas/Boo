@@ -1,0 +1,9 @@
+@font-face {
+    font-family: 'Sensa';
+    src: local('Sensa Wild Fill'), local('Sensa-Wild-Fill'),
+        url('SensaWild-Fill.woff2') format('woff2'),
+        url('SensaWild-Fill.woff') format('woff'),
+        url('SensaWild-Fill.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+  }

@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 77f4dd578021fc14dbbdaced6f79d857
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 286260
+  packageName: Rigged Dice
+  packageVersion: 1.2
+  assetPath: Assets/Plugins/Rigged Dice/Scripts/Core/ProjectionSceneManager.cs
+  uploadId: 781578

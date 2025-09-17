@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 890eecf926eba5d4f96e318821cda69b
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 286260
+  packageName: Rigged Dice
+  packageVersion: 1.2
+  assetPath: Assets/Plugins/Rigged Dice/Demos/Scripts/RollADice.cs
+  uploadId: 781578
