@@ -124,6 +124,6 @@ public class ResourceNode : MonoBehaviour
     }
 
     /// <summary>Current harvest progress (0-1).</summary>
-    public float HarvestPercent => _isHarvesting ? _harvestProgress / _harvestDuration : 0;
+    public float HarvestPercent => _isHarvesting && _harvestDuration > 0 ? _harvestProgress / _harvestDuration : 0;
     public bool IsHarvesting => _isHarvesting;
 }

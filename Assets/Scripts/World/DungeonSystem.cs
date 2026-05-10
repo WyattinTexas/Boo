@@ -86,6 +86,7 @@ public class DungeonSystem : MonoBehaviour
     int _currentRoom;
     bool _isRunning;
     Vector3 _returnPosition;
+    Coroutine _activeRoomCoroutine;
 
     public bool IsInDungeon => _isRunning;
 
@@ -141,11 +142,11 @@ public class DungeonSystem : MonoBehaviour
             {
                 (_activeDungeon.Name.ToUpper(), _activeDungeon.IntroDialogue, null, new Color(0.6f, 0.4f, 0.9f))
             };
-            SpiritComms.Instance.ShowCommSequence(lines, () => StartCoroutine(RunRoom()));
+            SpiritComms.Instance.ShowCommSequence(lines, () => _activeRoomCoroutine = StartCoroutine(RunRoom()));
         }
         else
         {
-            StartCoroutine(RunRoom());
+            _activeRoomCoroutine = StartCoroutine(RunRoom());
         }
 
         return true;
@@ -155,6 +156,7 @@ public class DungeonSystem : MonoBehaviour
     public void FleeDungeon()
     {
         if (!_isRunning) return;
+        if (_activeRoomCoroutine != null) { StopCoroutine(_activeRoomCoroutine); _activeRoomCoroutine = null; }
         Debug.Log($"[Dungeon] Player fled from {_activeDungeon.Name}");
         EndDungeon(false);
     }
@@ -211,7 +213,7 @@ public class DungeonSystem : MonoBehaviour
             Debug.Log($"[Dungeon] Room {_currentRoom + 1} passed!");
             _currentRoom++;
             yield return new WaitForSeconds(0.5f);
-            StartCoroutine(RunRoom()); // Next room
+            _activeRoomCoroutine = StartCoroutine(RunRoom()); // Next room
         }
         else
         {
