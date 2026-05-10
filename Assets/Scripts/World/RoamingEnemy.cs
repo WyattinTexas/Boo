@@ -231,12 +231,19 @@ public class RoamingEnemy : MonoBehaviour
 
     void SnapToTerrain()
     {
+        // Temporarily disable own collider so raycast doesn't hit self
+        var col = GetComponent<Collider>();
+        bool wasEnabled = col != null && col.enabled;
+        if (col != null) col.enabled = false;
+
         if (Physics.Raycast(transform.position + Vector3.up * 50, Vector3.down, out var hit, 100f))
         {
             var pos = transform.position;
             pos.y = hit.point.y;
             transform.position = pos;
         }
+
+        if (col != null) col.enabled = wasEnabled;
     }
 
     // =========================================================================

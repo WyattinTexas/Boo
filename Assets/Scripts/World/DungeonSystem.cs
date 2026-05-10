@@ -560,6 +560,7 @@ public class DungeonSystem : MonoBehaviour
     void EndDungeon(bool victory)
     {
         _isRunning = false;
+        _activeRoomCoroutine = null;
 
         if (victory)
         {
