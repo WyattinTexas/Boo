@@ -624,8 +624,10 @@ public class OverworldIntegration : MonoBehaviour
         var notifRect = _notificationText.GetComponent<RectTransform>();
         notifRect.anchorMin = new Vector2(0.5f, 0.7f);
         notifRect.anchorMax = new Vector2(0.5f, 0.7f);
-        notifRect.sizeDelta = new Vector2(600, 40);
+        notifRect.sizeDelta = new Vector2(700, 50);
         _notificationText.alignment = TextAlignmentOptions.Center;
+        _notificationText.enableWordWrapping = true;
+        _notificationText.overflowMode = TMPro.TextOverflowModes.Ellipsis;
         _notificationText.gameObject.SetActive(false);
 
         // === CHAT PANEL (bottom left) ===

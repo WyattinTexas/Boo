@@ -250,6 +250,16 @@ public class RoamingEnemy : MonoBehaviour
     // ALERT ICON — red "!" above enemy when they spot the player
     // =========================================================================
 
+    void OnDestroy()
+    {
+        // Clean up runtime materials to prevent leaks
+        foreach (var r in GetComponentsInChildren<Renderer>())
+        {
+            if (r != null && r.material != null)
+                Destroy(r.material);
+        }
+    }
+
     void ShowAlertIcon()
     {
         if (_alertIcon != null) return;
