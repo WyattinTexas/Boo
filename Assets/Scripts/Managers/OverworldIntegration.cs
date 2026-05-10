@@ -484,10 +484,34 @@ public class OverworldIntegration : MonoBehaviour
             Debug.Log("[Overworld] Gathering system active in world");
         }
 
-        // Exploration XP for walking
-        // Exploration XP is only awarded for significant discoveries:
-        // zone visits, crystal finds, viewpoints, lore, treasure chests.
-        // No passive walking XP — exploration should feel earned.
+        // Spawn dungeon entrances at predefined positions
+        SpawnDungeonEntrances();
+    }
+
+    void SpawnDungeonEntrances()
+    {
+        var entrances = new (string id, Vector3 pos, Color color)[]
+        {
+            ("frost_cavern", new Vector3(60, 0, -40), new Color(0.4f, 0.7f, 1f)),
+            ("lava_forge_trial", new Vector3(-80, 0, 70), new Color(1f, 0.5f, 0.2f)),
+            ("shadow_vault", new Vector3(120, 0, 100), new Color(0.6f, 0.3f, 0.9f)),
+        };
+
+        foreach (var (id, pos, color) in entrances)
+        {
+            // Snap to terrain
+            Vector3 spawnPos = pos;
+            if (Physics.Raycast(pos + Vector3.up * 100, Vector3.down, out var hit, 200f))
+                spawnPos = hit.point;
+
+            var go = new GameObject($"DungeonEntrance_{id}");
+            go.transform.position = spawnPos;
+            var entrance = go.AddComponent<DungeonEntrance>();
+            entrance.DungeonId = id;
+            entrance.MarkerColor = color;
+        }
+
+        Debug.Log($"[Overworld] Spawned {entrances.Length} dungeon entrances");
     }
 
     // =========================================================================
