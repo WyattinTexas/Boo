@@ -404,9 +404,16 @@ public class OverworldIntegration : MonoBehaviour
 
             if (foundEncounter != null)
             {
+                string wildLocationId = $"wild_{enemy.EnemyName}_{enemy.CardId}";
+
+                // Ensure WorldLocationSaved exists or battle will abort
+                var worldSaved = MainPlayerData.Instance.WorldSaved;
+                if (worldSaved.GetLocationSaved(wildLocationId) == null)
+                    worldSaved.SavedLocations.Add(new WorldLocationSaved { LocationId = wildLocationId });
+
                 var info = new GameInfo
                 {
-                    LocationId = $"wild_{enemy.EnemyName}_{enemy.CardId}",
+                    LocationId = wildLocationId,
                     EncounterId = foundEncounter.AssetId,
                     TurnCount = 0,
                 };

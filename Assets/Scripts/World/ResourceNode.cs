@@ -22,10 +22,14 @@ public class ResourceNode : MonoBehaviour
 
     float _respawnTimer;
     Color _originalColor;
+    Vector3 _originalScale;
     bool _colorSaved;
 
     void Start()
     {
+        // Save original scale before any modifications
+        _originalScale = transform.localScale;
+
         // Build procedural model if no existing mesh
         var existingMesh = GetComponentInChildren<MeshFilter>();
         if (existingMesh == null && !string.IsNullOrEmpty(MaterialId))
@@ -62,6 +66,8 @@ public class ResourceNode : MonoBehaviour
     /// <summary>Mark as depleted and start respawn countdown.</summary>
     public void Deplete(float respawnTime)
     {
+        if (IsDepleted) return; // Guard against double-deplete
+
         IsDepleted = true;
         _isHarvesting = false;
         _respawnTimer = respawnTime;
@@ -78,8 +84,8 @@ public class ResourceNode : MonoBehaviour
             renderer.material.color = _originalColor * 0.3f;
         }
 
-        // Shrink slightly
-        transform.localScale *= 0.6f;
+        // Shrink to 60% of original (not cumulative)
+        transform.localScale = _originalScale * 0.6f;
     }
 
     void Update()
@@ -111,8 +117,8 @@ public class ResourceNode : MonoBehaviour
                     renderer.material.color = _originalColor;
                 }
 
-                // Restore scale
-                transform.localScale /= 0.6f;
+                // Restore original scale
+                transform.localScale = _originalScale;
             }
         }
     }

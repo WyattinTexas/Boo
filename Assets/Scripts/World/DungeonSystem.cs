@@ -325,9 +325,18 @@ public class DungeonSystem : MonoBehaviour
 
                 if (templateEnc != null)
                 {
+                    string waveLocId = $"dungeon_wave_{_activeDungeon.Id}_{w}";
+
+                    // Ensure WorldLocationSaved exists or battle will abort
+                    var worldSaved = MainPlayerData.Instance.WorldSaved;
+                    if (worldSaved.GetLocationSaved(waveLocId) == null)
+                        worldSaved.SavedLocations.Add(new WorldLocationSaved { LocationId = waveLocId });
+
+                    int ghostCountBefore = MainPlayerData.Instance?.DefeatedGhostCount ?? 0;
+
                     var info = new GameInfo
                     {
-                        LocationId = $"dungeon_wave_{_activeDungeon.Id}_{w}",
+                        LocationId = waveLocId,
                         EncounterId = templateEnc.AssetId,
                     };
                     GameLoader.StartGame(info);
@@ -336,7 +345,14 @@ public class DungeonSystem : MonoBehaviour
                     while (GameLoader.CurrentManager != null)
                         yield return null;
 
-                    // Check result (DefeatedGhostCount increments on win)
+                    // Check if player won this wave
+                    int ghostCountAfter = MainPlayerData.Instance?.DefeatedGhostCount ?? 0;
+                    if (ghostCountAfter <= ghostCountBefore)
+                    {
+                        // Player lost this wave — dungeon fails
+                        onResult(false);
+                        yield break;
+                    }
                     // If player lost, they'll be back in overworld with less HP
                     yield return new WaitForSeconds(0.5f);
                 }
@@ -474,9 +490,16 @@ public class DungeonSystem : MonoBehaviour
 
         int ghostCountBefore = MainPlayerData.Instance?.DefeatedGhostCount ?? 0;
 
+        string guardianLocId = $"dungeon_guardian_{_activeDungeon.Id}";
+
+        // Ensure WorldLocationSaved exists or battle will abort
+        var worldSaved = MainPlayerData.Instance.WorldSaved;
+        if (worldSaved.GetLocationSaved(guardianLocId) == null)
+            worldSaved.SavedLocations.Add(new WorldLocationSaved { LocationId = guardianLocId });
+
         var info = new GameInfo
         {
-            LocationId = $"dungeon_guardian_{_activeDungeon.Id}",
+            LocationId = guardianLocId,
             EncounterId = templateEnc.AssetId,
         };
         GameLoader.StartGame(info);

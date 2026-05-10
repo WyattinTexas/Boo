@@ -677,12 +677,14 @@ public class GameManager : MonoBehaviour
             ArenaSystem.Instance.ReportResult(arenaWon);
         }
 
+        // Always clear override lineup after battle ends
+        OverrideEnemyLineup = null;
+
         // For trainer battles, skip the end encounter panel and leave immediately.
         if (IsTrainerBattle)
         {
             Debug.Log("[GameManager] Trainer battle ended, skipping end encounter dialog.");
             IsTrainerBattle = false;
-            OverrideEnemyLineup = null;
             LeaveGame();
             return;
         }

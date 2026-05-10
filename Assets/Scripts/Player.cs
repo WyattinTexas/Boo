@@ -83,7 +83,9 @@ public class Player : MonoBehaviour
         }
     }
 
-    public IEnumerator SpawnCards(List<string> cardIds) => SpawnCards(cardIds.ConvertAll(x => AssetManager.Cards[x]));
+    public IEnumerator SpawnCards(List<string> cardIds) => SpawnCards(
+        cardIds.ConvertAll(x => AssetManager.Cards.TryGetValue(x, out var c) ? c : null)
+               .FindAll(c => c != null));
     public IEnumerator SpawnCards(List<Card> slotCards)
     {
         if (slotCards.Count > Slots.Count)
