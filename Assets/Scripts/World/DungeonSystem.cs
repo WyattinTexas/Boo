@@ -456,7 +456,7 @@ public class DungeonSystem : MonoBehaviour
             yield return null;
         }
 
-        if (answer == room.CorrectAnswer)
+        if (answer >= 0 && answer == room.CorrectAnswer)
         {
             OverworldIntegration.Instance?.ShowNotification("Correct! The gate rumbles open.");
             QuestManager.Instance?.ReportPuzzleSolved();

@@ -64,8 +64,9 @@ public class WorldCollectible : MonoBehaviour
     {
         if (_interactCooldown > 0) _interactCooldown -= Time.deltaTime;
 
-        // Check for E key interaction
-        if (Input.GetKeyDown(KeyCode.E) && _interactCooldown <= 0)
+        // Check for E key interaction — skip if dialogue is active
+        if (Input.GetKeyDown(KeyCode.E) && _interactCooldown <= 0
+            && (SpiritComms.Instance == null || !SpiritComms.Instance.IsActive))
         {
             var player = WorldManager.Instance?.WorldPlayer;
             if (player == null) return;
