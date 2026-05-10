@@ -374,7 +374,7 @@ public class OverworldIntegration : MonoBehaviour
 
         // Build the override lineup from the roaming enemy's actual card data
         var enemyLineup = BuildEnemyLineup(enemy);
-        if (enemyLineup != null && enemyLineup.Count >= CardLineup.LineupSize)
+        if (enemyLineup != null && enemyLineup.Count >= 1)
         {
             GameManager.OverrideEnemyLineup = enemyLineup;
             Debug.Log($"[Overworld] Override lineup set: [{string.Join(", ", enemyLineup.ConvertAll(c => c.CardName))}]");
@@ -429,7 +429,7 @@ public class OverworldIntegration : MonoBehaviour
     /// </summary>
     static List<Card> BuildEnemyLineup(RoamingEnemy enemy)
     {
-        // Find the enemy's card prefab in AssetManager by matching CardName
+        // Wild encounters are always 1v1 — just the enemy's single card
         Card enemyCard = null;
         foreach (var pair in AssetManager.Cards)
         {
@@ -446,71 +446,7 @@ public class OverworldIntegration : MonoBehaviour
             return null;
         }
 
-        // Determine the enemy's set from AllCardsData
-        string enemySet = null;
-        foreach (var entry in AllCardsData.Cards)
-        {
-            if (entry.Id == enemy.CardId)
-            {
-                enemySet = entry.Set;
-                break;
-            }
-        }
-
-        // Collect candidate filler cards: commons from the same set, excluding the enemy card
-        var fillerPool = new List<Card>();
-        var fallbackPool = new List<Card>();
-        foreach (var pair in AssetManager.Cards)
-        {
-            var card = pair.Value;
-            if (card == enemyCard) continue;
-            if (card.Rarity != Rarity.Common) continue;
-
-            // Try to find the set for this card
-            string cardSet = null;
-            foreach (var entry in AllCardsData.Cards)
-            {
-                if (entry.Name == card.CardName)
-                {
-                    cardSet = entry.Set;
-                    break;
-                }
-            }
-
-            if (!string.IsNullOrEmpty(enemySet) && cardSet == enemySet)
-                fillerPool.Add(card);
-            else
-                fallbackPool.Add(card);
-        }
-
-        // If not enough same-set commons, add fallback
-        if (fillerPool.Count < CardLineup.LineupSize - 1)
-            fillerPool.AddRange(fallbackPool);
-
-        // Build the team: enemy card first (active slot), then random fillers
-        var lineup = new List<Card> { enemyCard };
-        var usedIndices = new HashSet<int>();
-        int fillersNeeded = CardLineup.LineupSize - 1;
-
-        for (int i = 0; i < fillersNeeded && fillerPool.Count > 0; i++)
-        {
-            int idx;
-            int attempts = 0;
-            do
-            {
-                idx = UnityEngine.Random.Range(0, fillerPool.Count);
-                attempts++;
-            } while (usedIndices.Contains(idx) && attempts < 50);
-
-            usedIndices.Add(idx);
-            lineup.Add(fillerPool[idx]);
-        }
-
-        // Pad if still short (shouldn't happen with a real card pool)
-        while (lineup.Count < CardLineup.LineupSize)
-            lineup.Add(enemyCard);
-
-        return lineup;
+        return new List<Card> { enemyCard };
     }
 
     void ApplyEquippedGear()
