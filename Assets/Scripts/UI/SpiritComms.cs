@@ -357,8 +357,8 @@ public class SpiritComms : MonoBehaviour
         panelRect.anchorMin = new Vector2(0.5f, 0f);
         panelRect.anchorMax = new Vector2(0.5f, 0f);
         panelRect.pivot = new Vector2(0.5f, 0f);
-        panelRect.sizeDelta = new Vector2(560, 0);       // fixed width, auto height
-        panelRect.anchoredPosition = new Vector2(0, 24);  // 24px from bottom
+        panelRect.sizeDelta = new Vector2(720, 0);       // fixed width, auto height
+        panelRect.anchoredPosition = new Vector2(0, 28);  // 28px from bottom
 
         // Border = the panel's own Image, colored per speaker
         _borderImage = _commPanel.AddComponent<Image>();
@@ -385,15 +385,15 @@ public class SpiritComms : MonoBehaviour
         boxBg.color = new Color(0.02f, 0.02f, 0.06f, 0.95f); // near-black
 
         var boxLayout = _commBox.AddComponent<HorizontalLayoutGroup>();
-        boxLayout.padding = new RectOffset(10, 14, 10, 10);
-        boxLayout.spacing = 12;
+        boxLayout.padding = new RectOffset(14, 18, 14, 14);
+        boxLayout.spacing = 14;
         boxLayout.childAlignment = TextAnchor.UpperLeft;
         boxLayout.childForceExpandWidth = false;
         boxLayout.childForceExpandHeight = true;
 
         var boxLE = _commBox.AddComponent<LayoutElement>();
         boxLE.flexibleWidth = 1;
-        boxLE.minHeight = 110; // minimum so it never looks collapsed
+        boxLE.minHeight = 130; // minimum so it never looks collapsed
 
         // =====================================================================
         // PORTRAIT FRAME — 96px with colored accent bar on left edge
@@ -403,10 +403,10 @@ public class SpiritComms : MonoBehaviour
         _portraitFrame = portraitFrame.AddComponent<Image>();
         _portraitFrame.color = new Color(0.08f, 0.08f, 0.12f, 1f);
         var pfLayout = portraitFrame.AddComponent<LayoutElement>();
-        pfLayout.preferredWidth = 96;
-        pfLayout.preferredHeight = 96;
-        pfLayout.minWidth = 96;
-        pfLayout.minHeight = 96;
+        pfLayout.preferredWidth = 110;
+        pfLayout.preferredHeight = 110;
+        pfLayout.minWidth = 110;
+        pfLayout.minHeight = 110;
 
         // Color bar — 4px accent strip on left edge (Star Fox shield bar)
         var colorBarGO = new GameObject("ColorBar");
@@ -475,18 +475,18 @@ public class SpiritComms : MonoBehaviour
         var nameGO = new GameObject("Name");
         nameGO.transform.SetParent(textColumn.transform, false);
         _nameText = nameGO.AddComponent<TextMeshProUGUI>();
-        _nameText.fontSize = 18;
+        _nameText.fontSize = 22;
         _nameText.fontStyle = FontStyles.Bold;
         _nameText.color = Color.white;
         _nameText.enableWordWrapping = false;
         var nameLayout = nameGO.AddComponent<LayoutElement>();
-        nameLayout.preferredHeight = 24;
+        nameLayout.preferredHeight = 28;
 
         // Dialogue text — clean white, high contrast
         var textGO = new GameObject("DialogueText");
         textGO.transform.SetParent(textColumn.transform, false);
         _dialogueText = textGO.AddComponent<TextMeshProUGUI>();
-        _dialogueText.fontSize = 18;
+        _dialogueText.fontSize = 21;
         _dialogueText.color = Color.white;
         _dialogueText.enableWordWrapping = true;
         _dialogueText.lineSpacing = 4;
@@ -499,7 +499,7 @@ public class SpiritComms : MonoBehaviour
         promptGO.transform.SetParent(textColumn.transform, false);
         _promptText = promptGO.AddComponent<TextMeshProUGUI>();
         _promptText.text = "[ E ]";
-        _promptText.fontSize = 12;
+        _promptText.fontSize = 14;
         _promptText.color = new Color(0.4f, 0.4f, 0.45f);
         _promptText.fontStyle = FontStyles.Italic;
         _promptText.alignment = TextAlignmentOptions.BottomRight;
