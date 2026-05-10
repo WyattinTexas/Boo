@@ -32,6 +32,7 @@ public class RoamingEnemy : MonoBehaviour
     Vector3 _patrolTarget;
     float _patrolTimer;
     float _alertTimer;
+    GameObject _alertIcon;
 
     // Card data reference
     AllCardsData.CardEntry? _cardData;
@@ -91,7 +92,10 @@ public class RoamingEnemy : MonoBehaviour
         {
             State = EnemyState.Alert;
             _alertTimer = AlertDuration;
-            // TODO: Show "!" alert icon
+            ShowAlertIcon();
+            // Disable spin during alert/chase
+            var spin = GetComponent<SpinY>();
+            if (spin != null) spin.enabled = false;
             return;
         }
 
@@ -133,6 +137,7 @@ public class RoamingEnemy : MonoBehaviour
         if (_alertTimer <= 0)
         {
             State = EnemyState.Chase;
+            HideAlertIcon();
         }
 
         // Face the player during alert
@@ -159,6 +164,9 @@ public class RoamingEnemy : MonoBehaviour
         if (distFromSpawn > GiveUpRange || distToPlayer > DetectRange * 2.5f)
         {
             State = EnemyState.Returning;
+            // Re-enable idle spin
+            var spin = GetComponent<SpinY>();
+            if (spin != null) spin.enabled = true;
             return;
         }
 
@@ -228,6 +236,37 @@ public class RoamingEnemy : MonoBehaviour
             var pos = transform.position;
             pos.y = hit.point.y;
             transform.position = pos;
+        }
+    }
+
+    // =========================================================================
+    // ALERT ICON — red "!" above enemy when they spot the player
+    // =========================================================================
+
+    void ShowAlertIcon()
+    {
+        if (_alertIcon != null) return;
+
+        _alertIcon = new GameObject("AlertIcon");
+        _alertIcon.transform.SetParent(transform, false);
+        _alertIcon.transform.localPosition = new Vector3(0, 2.8f, 0);
+        var tm = _alertIcon.AddComponent<TextMesh>();
+        tm.text = "!";
+        tm.fontSize = 72;
+        tm.characterSize = 0.08f;
+        tm.anchor = TextAnchor.MiddleCenter;
+        tm.alignment = TextAlignment.Center;
+        tm.color = Color.red;
+        tm.fontStyle = FontStyle.Bold;
+        _alertIcon.AddComponent<BillboardLabel>();
+    }
+
+    void HideAlertIcon()
+    {
+        if (_alertIcon != null)
+        {
+            Destroy(_alertIcon);
+            _alertIcon = null;
         }
     }
 }
