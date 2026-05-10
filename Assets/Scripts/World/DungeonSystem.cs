@@ -237,45 +237,78 @@ public class DungeonSystem : MonoBehaviour
 
     IEnumerator RunSequenceChest(DungeonRoom room, Action<bool> onResult)
     {
-        int length = room.SequenceLength > 0 ? room.SequenceLength : 3;
+        int length = Mathf.Clamp(room.SequenceLength > 0 ? room.SequenceLength : 3, 2, 5);
 
-        // Generate random sequence
+        // Generate random sequence using chest numbers 1-N
         int[] sequence = new int[length];
         for (int i = 0; i < length; i++)
             sequence[i] = UnityEngine.Random.Range(0, length);
 
-        // Show sequence to player via dialogue
+        // Show the sequence to memorize
         string seqDisplay = "";
         for (int i = 0; i < length; i++)
-            seqDisplay += $"Chest {sequence[i] + 1} → ";
-        seqDisplay = seqDisplay.TrimEnd(' ', '→');
+            seqDisplay += $"{sequence[i] + 1}";
+        seqDisplay = string.Join(" → ", seqDisplay.ToCharArray());
 
         if (SpiritComms.Instance != null)
         {
             var lines = new List<(string, string, Sprite, Color)>
             {
-                ("PUZZLE", $"Watch the sequence carefully...\n{seqDisplay}", null, new Color(0.4f, 0.8f, 1f)),
-                ("PUZZLE", "Now repeat the sequence! (Click the chests in order)", null, new Color(0.4f, 0.8f, 1f))
+                ("PUZZLE", $"Memorize this sequence:\n{seqDisplay}", null, new Color(0.4f, 0.8f, 1f)),
             };
             bool shown = false;
             SpiritComms.Instance.ShowCommSequence(lines, () => shown = true);
             while (!shown) yield return null;
         }
 
-        // For now, auto-pass with a simulated delay (UI interaction requires scene objects)
-        // TODO: When dungeon areas are designed, spawn clickable chest objects
-        yield return new WaitForSeconds(1.5f);
+        // Player must press the number keys in order
+        if (SpiritComms.Instance != null)
+        {
+            string chestList = "";
+            for (int i = 0; i < length; i++) chestList += $" [{i + 1}]";
+            var lines = new List<(string, string, Sprite, Color)>
+            {
+                ("PUZZLE", $"Now repeat the sequence! Press the number keys:{chestList}", null, new Color(0.4f, 0.8f, 1f))
+            };
+            bool shown = false;
+            SpiritComms.Instance.ShowCommSequence(lines, () => shown = true);
+            while (!shown) yield return null;
+        }
 
-        // Simulate: 70% pass rate for now (player skill will determine this when UI is built)
-        bool passed = UnityEngine.Random.value < 0.7f;
+        bool passed = true;
+        for (int step = 0; step < length; step++)
+        {
+            int answer = -1;
+            float timeout = 10f;
+            while (answer < 0 && timeout > 0)
+            {
+                timeout -= Time.deltaTime;
+                if (Input.GetKeyDown(KeyCode.Alpha1)) answer = 0;
+                else if (Input.GetKeyDown(KeyCode.Alpha2)) answer = 1;
+                else if (Input.GetKeyDown(KeyCode.Alpha3)) answer = 2;
+                else if (Input.GetKeyDown(KeyCode.Alpha4)) answer = 3;
+                else if (Input.GetKeyDown(KeyCode.Alpha5)) answer = 4;
+                yield return null;
+            }
+
+            if (answer != sequence[step])
+            {
+                passed = false;
+                break;
+            }
+
+            OverworldIntegration.Instance?.ShowNotification($"Chest {step + 1}/{length} correct!");
+            yield return new WaitForSeconds(0.3f);
+        }
 
         if (passed)
         {
-            OverworldIntegration.Instance?.ShowNotification("Sequence correct! The path opens.");
+            OverworldIntegration.Instance?.ShowNotification("Sequence complete! The path opens.");
+            QuestManager.Instance?.ReportPuzzleSolved();
         }
         else
         {
-            OverworldIntegration.Instance?.ShowNotification("Wrong sequence! The chests reset.");
+            OverworldIntegration.Instance?.ShowNotification("Wrong! The chests reset.");
         }
 
         onResult(passed);
@@ -426,6 +459,7 @@ public class DungeonSystem : MonoBehaviour
         if (answer == room.CorrectAnswer)
         {
             OverworldIntegration.Instance?.ShowNotification("Correct! The gate rumbles open.");
+            QuestManager.Instance?.ReportPuzzleSolved();
             onResult(true);
         }
         else

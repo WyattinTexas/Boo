@@ -899,13 +899,29 @@ public class NPCController : Interactable
         // Show pre-battle dialogue via SpiritComms, then start battle
         if (SpiritComms.Instance != null)
         {
-            string[] challenges = {
-                $"You dare challenge me? Let's see what you've got!",
-                $"I've been waiting for a worthy opponent. Prepare yourself!",
-                $"Think you can handle my team? Let's find out!",
-                $"No one passes through here without a fight!",
-                $"Your Spiritkin look strong... but mine are stronger!"
+            // Scale dialogue to team size — don't say "my team" for 1v1 trainers
+            int teamSize = Region switch
+            {
+                "frost_valley" => 1,
+                "rolling_hills" => 2,
+                "volcanic_isles" => 2,
+                _ => 3
             };
+            string[] challenges = teamSize <= 1
+                ? new[] {
+                    "You dare challenge me? Let's see what you've got!",
+                    "I've been waiting for a worthy opponent. Prepare yourself!",
+                    "No one passes through here without a fight!",
+                    "Think you're strong? Prove it!",
+                    "My Spiritkin will crush yours!"
+                }
+                : new[] {
+                    "You dare challenge me? Let's see what you've got!",
+                    "I've been waiting for a worthy opponent. Prepare yourself!",
+                    "Think you can handle my team? Let's find out!",
+                    "No one passes through here without a fight!",
+                    "Your Spiritkin look strong... but mine are stronger!"
+                };
             string challenge = challenges[UnityEngine.Random.Range(0, challenges.Length)];
             var lines = new List<(string, string, UnityEngine.Sprite, Color)>
             {
