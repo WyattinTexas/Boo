@@ -155,6 +155,7 @@ public class EnemySpawner : MonoBehaviour
 
     void CleanupDistant()
     {
+        if (WorldManager.Instance?.WorldPlayer == null) return;
         var playerPos = WorldManager.Instance.WorldPlayer.transform.position;
         for (int i = _activeEnemies.Count - 1; i >= 0; i--)
         {
