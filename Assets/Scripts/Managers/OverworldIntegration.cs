@@ -377,6 +377,7 @@ public class OverworldIntegration : MonoBehaviour
         if (enemyLineup != null && enemyLineup.Count >= 1)
         {
             GameManager.OverrideEnemyLineup = enemyLineup;
+            GameManager.IsWildBattle = true;
             Debug.Log($"[Overworld] Override lineup set: [{string.Join(", ", enemyLineup.ConvertAll(c => c.CardName))}]");
         }
         else

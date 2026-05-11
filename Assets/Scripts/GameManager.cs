@@ -127,6 +127,8 @@ public class GameManager : MonoBehaviour
 
     /// <summary>Whether the current game is a trainer battle (uses OverrideEnemyLineup, skip encounter dialogs).</summary>
     public static bool IsTrainerBattle = false;
+    /// <summary>Whether the current game is an overworld wild battle (skip encounter dialogs on end).</summary>
+    public static bool IsWildBattle = false;
 
     public void StartGame(GameInfo info)
     {
@@ -139,9 +141,9 @@ public class GameManager : MonoBehaviour
             && encounter.DialogSquences != null
             && encounter.DialogSquences.Exists(x => x.Type == DialogType.Start && x.Dialogs != null && x.Dialogs.Count > 0);
 
-        if (IsTrainerBattle || !hasStartDialog)
+        if (IsTrainerBattle || IsWildBattle || !hasStartDialog)
         {
-            Debug.Log($"[GameManager] Skipping encounter dialog (trainer={IsTrainerBattle}, hasStartDialog={hasStartDialog})");
+            Debug.Log($"[GameManager] Skipping encounter dialog (trainer={IsTrainerBattle}, wild={IsWildBattle}, hasStartDialog={hasStartDialog})");
             startCor.Start(StartGameCor);
         }
         else
@@ -680,11 +682,12 @@ public class GameManager : MonoBehaviour
         // Always clear override lineup after battle ends
         OverrideEnemyLineup = null;
 
-        // For trainer battles, skip the end encounter panel and leave immediately.
-        if (IsTrainerBattle)
+        // For trainer/wild battles, skip the end encounter panel and leave immediately.
+        if (IsTrainerBattle || IsWildBattle)
         {
-            Debug.Log("[GameManager] Trainer battle ended, skipping end encounter dialog.");
+            Debug.Log($"[GameManager] Overworld battle ended (trainer={IsTrainerBattle}, wild={IsWildBattle}), skipping end dialog.");
             IsTrainerBattle = false;
+            IsWildBattle = false;
             LeaveGame();
             return;
         }
