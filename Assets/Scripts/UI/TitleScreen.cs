@@ -16,6 +16,7 @@ public class TitleScreen : MonoBehaviour
     CanvasGroup _overlayGroup;
     GameObject _overlay;
     bool _isActive;
+    readonly List<GameObject> _wasActive = new(); // Track which HUD elements were active before hiding
 
     // Saved state to restore after START
     Vector3 _savedCamPos;
@@ -82,15 +83,16 @@ public class TitleScreen : MonoBehaviour
 
     void HideHUD()
     {
-        // Hide the entire overlay canvas (HUD, chat, skill bars, everything)
+        _wasActive.Clear();
         if (OverworldIntegration.Instance?._overlayCanvas != null)
         {
             var canvasGO = OverworldIntegration.Instance._overlayCanvas.gameObject;
-            // Don't disable the canvas — we need it for our title UI
-            // Instead, hide all existing children
             for (int i = 0; i < canvasGO.transform.childCount; i++)
             {
                 var child = canvasGO.transform.GetChild(i);
+                // Track which children were active so we only restore those
+                if (child.gameObject.activeSelf)
+                    _wasActive.Add(child.gameObject);
                 child.gameObject.SetActive(false);
             }
         }
@@ -98,17 +100,12 @@ public class TitleScreen : MonoBehaviour
 
     void ShowHUD()
     {
-        if (OverworldIntegration.Instance?._overlayCanvas != null)
+        // Only restore elements that were active before we hid them
+        foreach (var go in _wasActive)
         {
-            var canvasGO = OverworldIntegration.Instance._overlayCanvas.gameObject;
-            for (int i = 0; i < canvasGO.transform.childCount; i++)
-            {
-                var child = canvasGO.transform.GetChild(i);
-                // Don't re-show our overlay (it's being destroyed anyway)
-                if (child.name == "TitleScreenOverlay") continue;
-                child.gameObject.SetActive(true);
-            }
+            if (go != null) go.SetActive(true);
         }
+        _wasActive.Clear();
     }
 
     void BuildUI()

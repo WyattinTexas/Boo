@@ -231,7 +231,20 @@ public class OverworldIntegration : MonoBehaviour
 
     void OnSceneChanged(SceneType sceneType, LoadSceneMode mode)
     {
-        Debug.Log($"[Overworld] Scene loaded: {sceneType} — refreshing HUD");
+        Debug.Log($"[Overworld] Scene loaded: {sceneType}");
+
+        // Hide HUD entirely during battle — clean battle scene, no overworld UI
+        if (sceneType == SceneType.Game)
+        {
+            if (_overlayCanvas != null)
+                _overlayCanvas.gameObject.SetActive(false);
+            Debug.Log("[Overworld] HUD hidden for battle scene");
+            return;
+        }
+
+        // Show HUD when returning to world
+        if (_overlayCanvas != null)
+            _overlayCanvas.gameObject.SetActive(true);
 
         // Rebuild UI references if needed (Canvas gets destroyed on scene change)
         if (_overlayCanvas == null)
