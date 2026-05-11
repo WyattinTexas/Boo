@@ -10,6 +10,8 @@ using UnityEngine.UI;
 /// </summary>
 public class TitleScreen : MonoBehaviour
 {
+    public const string VERSION = "0.2.0";
+
     public static TitleScreen Instance { get; private set; }
     public static bool HasStarted { get; private set; }
 
@@ -161,11 +163,11 @@ public class TitleScreen : MonoBehaviour
         titleRect.offsetMin = Vector2.zero;
         titleRect.offsetMax = Vector2.zero;
 
-        // ── Subtitle ──
+        // ── Subtitle + version ──
         var subGO = new GameObject("Subtitle", typeof(RectTransform), typeof(TextMeshProUGUI));
         subGO.transform.SetParent(_overlay.transform, false);
         var subTMP = subGO.GetComponent<TextMeshProUGUI>();
-        subTMP.text = "The Spirit World Awaits";
+        subTMP.text = $"The Spirit World Awaits\n<size=14>v{VERSION}</size>";
         subTMP.fontSize = 20;
         subTMP.fontStyle = FontStyles.Italic;
         subTMP.color = new Color(1, 1, 1, 0.65f);
