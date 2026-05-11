@@ -543,8 +543,30 @@ public class OverworldIntegration : MonoBehaviour
                 data.PlayerName = "Adventurer";
                 data.CharacterCreated = true;
                 data.Gold = 100;
+
+                // Grant starter Spiritkin: Snorton, Castle Guards, or Gary
+                int[] starterIds = { 66, 39, 91 }; // Snorton, Castle Guards, Gary
+                string starterName = "a Spiritkin";
+                foreach (int id in starterIds)
+                {
+                    var entry = AllCardsData.FindById(id);
+                    if (!entry.HasValue) continue;
+
+                    foreach (var pair in AssetManager.Cards)
+                    {
+                        if (pair.Value.CardName.Equals(entry.Value.Name, System.StringComparison.OrdinalIgnoreCase))
+                        {
+                            data.SlottedCardIds.Add(pair.Key);
+                            data.SetOwned(pair.Key, true);
+                            starterName = entry.Value.Name;
+                            break;
+                        }
+                    }
+                    if (data.SlottedCardIds.Count > 0) break; // Got one
+                }
+
                 MainPlayerData.SaveToCloud();
-                ShowNotification("Welcome to the Battle of Origins!");
+                ShowNotification($"Welcome to the Battle of Origins! {starterName} joins your team!");
             }
         });
     }

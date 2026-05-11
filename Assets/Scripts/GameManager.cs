@@ -188,14 +188,35 @@ public class GameManager : MonoBehaviour
         var playerCardIds = MainPlayerData.Instance.SlottedCardIds;
         if (playerCardIds == null || playerCardIds.Count == 0)
         {
-            Debug.LogWarning("[GameManager] Player has no SlottedCardIds! Granting emergency starter cards.");
+            Debug.LogWarning("[GameManager] Player has no SlottedCardIds! Granting starter Spiritkin.");
             playerCardIds = new List<string>();
+            // Try Snorton (66), Castle Guards (39), Gary (91) — then fallback to any
+            int[] starterIds = { 66, 39, 91 };
             int needed = MainPlayerData.Instance.EffectiveTeamSize;
-            foreach (var pair in AssetManager.Cards)
+            foreach (int id in starterIds)
             {
                 if (playerCardIds.Count >= needed) break;
-                playerCardIds.Add(pair.Key);
-                MainPlayerData.Instance.SetOwned(pair.Key, true);
+                var entry = AllCardsData.FindById(id);
+                if (!entry.HasValue) continue;
+                foreach (var pair in AssetManager.Cards)
+                {
+                    if (pair.Value.CardName.Equals(entry.Value.Name, System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        playerCardIds.Add(pair.Key);
+                        MainPlayerData.Instance.SetOwned(pair.Key, true);
+                        break;
+                    }
+                }
+            }
+            // Fallback if none found
+            if (playerCardIds.Count == 0)
+            {
+                foreach (var pair in AssetManager.Cards)
+                {
+                    if (playerCardIds.Count >= needed) break;
+                    playerCardIds.Add(pair.Key);
+                    MainPlayerData.Instance.SetOwned(pair.Key, true);
+                }
             }
             MainPlayerData.Instance.SlottedCardIds = playerCardIds;
             MainPlayerData.Save();
