@@ -20,7 +20,7 @@ public class OverworldIntegration : MonoBehaviour
     public static event Action<string, bool> OnTrainerDefeated;
 
     [Header("Runtime UI")]
-    Canvas _overlayCanvas;
+    [System.NonSerialized] public Canvas _overlayCanvas;
     GameObject _hudPanel;
     TextMeshProUGUI _goldText;
     TextMeshProUGUI _xpText; // kept for fallback
@@ -495,6 +495,9 @@ public class OverworldIntegration : MonoBehaviour
 
         // Spawn dungeon entrances at predefined positions
         SpawnDungeonEntrances();
+
+        // Show title screen on first load
+        ShowTitleScreenIfFirstTime();
     }
 
     void SpawnDungeonEntrances()
@@ -521,6 +524,22 @@ public class OverworldIntegration : MonoBehaviour
         }
 
         Debug.Log($"[Overworld] Spawned {entrances.Length} dungeon entrances");
+    }
+
+    /// <summary>Show the title screen on first world load.</summary>
+    void ShowTitleScreenIfFirstTime()
+    {
+        if (TitleScreen.HasStarted) return; // Already played
+
+        // Create TitleScreen singleton
+        if (TitleScreen.Instance == null)
+        {
+            var go = new GameObject("TitleScreen");
+            go.AddComponent<TitleScreen>();
+            DontDestroyOnLoad(go);
+        }
+
+        TitleScreen.Instance.Show();
     }
 
     // =========================================================================

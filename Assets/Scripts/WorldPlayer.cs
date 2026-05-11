@@ -209,8 +209,9 @@ public class WorldPlayer : Interactable
 
         _frameMovement = Vector3.zero;
 
-        // Freeze movement while NPC dialogue or dungeon puzzle is active
-        if ((SpiritComms.Instance != null && SpiritComms.Instance.IsActive)
+        // Freeze movement while title screen, NPC dialogue, or dungeon puzzle is active
+        if ((TitleScreen.Instance != null && !TitleScreen.HasStarted)
+            || (SpiritComms.Instance != null && SpiritComms.Instance.IsActive)
             || (DungeonSystem.Instance != null && DungeonSystem.Instance.IsInDungeon))
         {
             // Still apply gravity so we don't float
