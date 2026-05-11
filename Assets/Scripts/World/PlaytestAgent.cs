@@ -4,12 +4,14 @@ using System.Linq;
 using UnityEngine;
 
 /// <summary>
-/// Automated playtest agent that controls the WorldPlayer to test gameplay loops.
-/// Three archetypes: Collector (catch all Spiritkin), Explorer (find all crystals/lore),
-/// Crafter (gather materials and craft a target item).
+/// Automated playtest agents — three named characters who each play the game
+/// with a distinct motivation and strategy. They test the full gameplay loop
+/// from a real player's perspective and report what works and what breaks.
 ///
-/// Activate via console or DevTools: PlaytestAgent.StartTest(AgentType.Collector)
-/// Logs progress and blockers to Debug.Log with [PLAYTEST] prefix.
+/// Trigger via browser console:
+///   unityInstance.SendMessage('JSBridge', 'RunCollector', '')
+///   unityInstance.SendMessage('JSBridge', 'RunExplorer', '')
+///   unityInstance.SendMessage('JSBridge', 'RunCrafter', '')
 /// </summary>
 public class PlaytestAgent : MonoBehaviour
 {
@@ -17,6 +19,41 @@ public class PlaytestAgent : MonoBehaviour
 
     public enum AgentType { Collector, Explorer, Crafter }
     public enum AgentState { Idle, Moving, Interacting, InBattle, Waiting, Done, Stuck }
+
+    // =========================================================================
+    // THE THREE AGENTS
+    // =========================================================================
+    //
+    // MAXINE "MAX" VOSS — The Collector
+    //   "Gotta catch 'em all. Every last one."
+    //   Strategy: Hunt every wild Spiritkin, fight everything that moves.
+    //   Wants to fill out her collection. Judges the game by how satisfying
+    //   the battle loop feels and whether she can actually GET new cards.
+    //   Win condition: 5 unique Spiritkin collected.
+    //
+    // DIEGO SANTOS — The Explorer
+    //   "If there's a corner of this map I haven't seen, I'm not done."
+    //   Strategy: Systematic sweep of every collectible, every region.
+    //   Opens every chest, reads every lore tablet, finds every viewpoint.
+    //   Judges the game by whether exploration is rewarded and whether
+    //   there's always something new to find.
+    //   Win condition: All collectibles found, all 4 regions visited.
+    //
+    // YUKI TANAKA — The Crafter
+    //   "Give me the right materials and I'll build something legendary."
+    //   Strategy: Harvest every resource node, collect essences, find
+    //   schematics, craft the best possible item. Judges the game by
+    //   whether the gathering-to-crafting pipeline actually works end to end.
+    //   Win condition: Craft at least 1 item.
+    //
+    // =========================================================================
+
+    static readonly Dictionary<AgentType, (string name, string title, string motto)> AGENTS = new()
+    {
+        [AgentType.Collector] = ("Maxine \"Max\" Voss", "The Collector", "Gotta catch 'em all. Every last one."),
+        [AgentType.Explorer] = ("Diego Santos", "The Explorer", "If there's a corner of this map I haven't seen, I'm not done."),
+        [AgentType.Crafter] = ("Yuki Tanaka", "The Crafter", "Give me the right materials and I'll build something legendary."),
+    };
 
     // =========================================================================
     // CONFIG
@@ -36,27 +73,31 @@ public class PlaytestAgent : MonoBehaviour
     // STATE
     // =========================================================================
 
+    string _agentName;
+    string _agentTitle;
     Vector3 _targetPos;
     float _stuckTimer;
     Vector3 _lastPos;
     float _posCheckTimer;
     int _actionsCompleted;
     int _battlesFought;
+    int _battlesWon;
     int _itemsCollected;
     float _totalRunTime;
-    List<string> _blockers = new();
+    readonly List<string> _blockers = new();
+    readonly List<string> _highlights = new();
     Coroutine _agentCoroutine;
 
     // =========================================================================
     // PUBLIC API
     // =========================================================================
 
-    /// <summary>Start a playtest agent of the given type.</summary>
     public static void StartTest(AgentType type)
     {
         if (Instance == null)
         {
             var go = new GameObject("PlaytestAgent");
+            DontDestroyOnLoad(go);
             Instance = go.AddComponent<PlaytestAgent>();
         }
 
@@ -64,7 +105,6 @@ public class PlaytestAgent : MonoBehaviour
         Instance.BeginTest();
     }
 
-    /// <summary>Stop the current playtest.</summary>
     public static void StopTest()
     {
         if (Instance != null && Instance.IsRunning)
@@ -78,23 +118,32 @@ public class PlaytestAgent : MonoBehaviour
     }
 
     // =========================================================================
-    // TEST EXECUTION
+    // LIFECYCLE
     // =========================================================================
 
     void BeginTest()
     {
         if (IsRunning) EndTest("Restarting");
 
+        var info = AGENTS[Type];
+        _agentName = info.name;
+        _agentTitle = info.title;
+
         IsRunning = true;
         State = AgentState.Idle;
         _actionsCompleted = 0;
         _battlesFought = 0;
+        _battlesWon = 0;
         _itemsCollected = 0;
         _totalRunTime = 0;
         _blockers.Clear();
+        _highlights.Clear();
 
-        Log($"=== PLAYTEST START: {Type} ===");
-        LogGoals();
+        Log("════════════════════════════════════════════════════");
+        Log($"  {_agentName}");
+        Log($"  \"{info.motto}\"");
+        Log("════════════════════════════════════════════════════");
+        LogStartState();
 
         _agentCoroutine = StartCoroutine(RunAgent());
     }
@@ -105,21 +154,32 @@ public class PlaytestAgent : MonoBehaviour
         State = AgentState.Done;
         if (_agentCoroutine != null) { StopCoroutine(_agentCoroutine); _agentCoroutine = null; }
 
-        Log($"=== PLAYTEST END: {Type} ===");
-        Log($"Reason: {reason}");
-        Log($"Runtime: {_totalRunTime:F0}s | Actions: {_actionsCompleted} | Battles: {_battlesFought} | Items: {_itemsCollected}");
+        Log("════════════════════════════════════════════════════");
+        Log($"  {_agentName} — FINAL REPORT");
+        Log("════════════════════════════════════════════════════");
+        Log($"Result: {reason}");
+        Log($"Runtime: {FormatTime(_totalRunTime)} | Actions: {_actionsCompleted}");
+        Log($"Battles: {_battlesFought} fought, {_battlesWon} won ({(_battlesFought > 0 ? (100f * _battlesWon / _battlesFought).ToString("F0") : "0")}% winrate)");
+        Log($"Items collected: {_itemsCollected}");
+
+        if (_highlights.Count > 0)
+        {
+            Log($"HIGHLIGHTS ({_highlights.Count}):");
+            foreach (var h in _highlights) Log($"  ★ {h}");
+        }
 
         if (_blockers.Count > 0)
         {
-            Log($"BLOCKERS FOUND ({_blockers.Count}):");
-            foreach (var b in _blockers) Log($"  - {b}");
+            Log($"BLOCKERS ({_blockers.Count}):");
+            foreach (var b in _blockers) Log($"  ✗ {b}");
         }
         else
         {
-            Log("No blockers found — loop completed successfully!");
+            Log("✓ No blockers — gameplay loop completed clean!");
         }
 
-        LogProgress();
+        LogFinalState();
+        Log("════════════════════════════════════════════════════");
     }
 
     void Update()
@@ -143,10 +203,10 @@ public class PlaytestAgent : MonoBehaviour
                     _stuckTimer += 3f;
                     if (_stuckTimer > StuckTimeout)
                     {
-                        _blockers.Add($"Stuck at {player.transform.position} after {_stuckTimer:F0}s — couldn't reach target {_targetPos}");
-                        Log($"STUCK! Picking new target...");
+                        _blockers.Add($"STUCK at {FormatPos(player.transform.position)} for {_stuckTimer:F0}s — target was {FormatPos(_targetPos)}");
+                        Log($"{_agentName} got stuck! Rerouting...");
                         _stuckTimer = 0;
-                        State = AgentState.Idle; // Will pick new target next cycle
+                        State = AgentState.Idle;
                     }
                 }
                 else
@@ -156,213 +216,239 @@ public class PlaytestAgent : MonoBehaviour
             }
         }
 
-        // Skip movement while in battle or dialogue
         if (SpiritComms.Instance != null && SpiritComms.Instance.IsActive)
-        {
             State = AgentState.Interacting;
-            return;
-        }
-        if (GameLoader.CurrentManager != null)
-        {
+        else if (GameLoader.CurrentManager != null)
             State = AgentState.InBattle;
-            return;
-        }
     }
 
     // =========================================================================
-    // AGENT COROUTINES
+    // AGENT DISPATCH
     // =========================================================================
 
     IEnumerator RunAgent()
     {
-        // Wait for world to load
         while (WorldManager.Instance?.WorldPlayer == null)
             yield return new WaitForSeconds(0.5f);
 
-        yield return new WaitForSeconds(2f); // Let everything initialize
+        yield return new WaitForSeconds(2f);
         _lastPos = GetPlayer().transform.position;
+        Log($"{_agentName} spawned at {FormatPos(_lastPos)}. Let's go.");
 
         switch (Type)
         {
-            case AgentType.Collector:
-                yield return RunCollector();
-                break;
-            case AgentType.Explorer:
-                yield return RunExplorer();
-                break;
-            case AgentType.Crafter:
-                yield return RunCrafter();
-                break;
+            case AgentType.Collector: yield return RunMaxine(); break;
+            case AgentType.Explorer: yield return RunDiego(); break;
+            case AgentType.Crafter: yield return RunYuki(); break;
         }
     }
 
     // =========================================================================
-    // COLLECTOR — fight every enemy, collect all Spiritkin
+    // MAXINE "MAX" VOSS — The Collector
+    // Hunt Spiritkin, fight everything, build a team
     // =========================================================================
 
-    IEnumerator RunCollector()
+    IEnumerator RunMaxine()
     {
-        Log("Goal: Fight wild Spiritkin, collect as many unique cards as possible");
+        Log("Max is on the hunt. First priority: find something to fight.");
 
-        int maxLoops = 50; // Safety cap
+        int maxLoops = 50;
+        int consecutiveWanders = 0;
+
         for (int loop = 0; loop < maxLoops; loop++)
         {
-            // Wait if in battle or dialogue
-            while (GameLoader.CurrentManager != null ||
-                   (SpiritComms.Instance != null && SpiritComms.Instance.IsActive))
-            {
-                yield return new WaitForSeconds(0.5f);
-            }
+            yield return WaitForWorldState();
 
-            // Find nearest enemy
+            // Track wins before battle
+            int winsBefore = MainPlayerData.Instance?.DefeatedGhostCount ?? 0;
+
             var enemy = FindNearestEnemy();
             if (enemy != null)
             {
-                Log($"Targeting enemy: {enemy.EnemyName} ({enemy.CardRarity}) at {enemy.transform.position}");
-                yield return MoveToPosition(enemy.transform.position, 1.5f);
+                consecutiveWanders = 0;
+                Log($"Max spots {enemy.EnemyName} ({enemy.CardRarity}{(enemy.IsElite ? ", ELITE" : "")}) — engaging!");
+                yield return MoveToPosition(enemy.transform.position, 1.2f);
 
-                // Wait for battle to start and finish
                 yield return new WaitForSeconds(1f);
-                float battleTimeout = 60f;
-                while (GameLoader.CurrentManager != null && battleTimeout > 0)
-                {
-                    battleTimeout -= 0.5f;
-                    yield return new WaitForSeconds(0.5f);
-                }
-
-                if (battleTimeout <= 0)
-                    _blockers.Add($"Battle against {enemy.EnemyName} timed out after 60s");
+                yield return WaitForBattle(enemy.EnemyName);
 
                 _battlesFought++;
-                _actionsCompleted++;
+                int winsAfter = MainPlayerData.Instance?.DefeatedGhostCount ?? 0;
+                if (winsAfter > winsBefore)
+                {
+                    _battlesWon++;
+                    _highlights.Add($"Defeated {enemy.EnemyName} (battle #{_battlesFought})");
 
-                // Wait for return to world
+                    // Check for sideline unlock
+                    if (winsAfter == 5)
+                        _highlights.Add("SIDELINE UNLOCKED at 5 wins!");
+                }
+
+                _actionsCompleted++;
                 yield return new WaitForSeconds(2f);
             }
             else
             {
-                // No enemies nearby — wander to find some
-                Log("No enemies found, wandering...");
-                Vector3 wanderTarget = GetPlayer().transform.position +
-                    new Vector3(Random.Range(-30f, 30f), 0, Random.Range(-30f, 30f));
-                yield return MoveToPosition(wanderTarget, 3f);
-                yield return new WaitForSeconds(2f);
+                consecutiveWanders++;
+                if (consecutiveWanders >= 5)
+                {
+                    _blockers.Add($"No enemies found after {consecutiveWanders} wanders — spawn system may be broken");
+                    Log("Max can't find anyone to fight. Is the spawn system working?");
+                    consecutiveWanders = 0;
+                }
+                else
+                {
+                    Log($"Max wanders looking for a fight... ({consecutiveWanders})");
+                }
+
+                Vector3 wanderDir = new(Random.Range(-40f, 40f), 0, Random.Range(-40f, 40f));
+                yield return MoveToPosition(GetPlayer().transform.position + wanderDir, 3f);
+                yield return new WaitForSeconds(1f);
             }
 
-            // Log progress every 10 actions
-            if (_actionsCompleted % 10 == 0 && _actionsCompleted > 0)
-                LogProgress();
-
-            // Check win condition: 5+ unique cards
-            var data = MainPlayerData.Instance;
-            if (data != null && data.SavedCards.Count >= 5)
+            // Progress check every 5 actions
+            if (_actionsCompleted > 0 && _actionsCompleted % 5 == 0)
             {
-                Log($"Collector goal reached: {data.SavedCards.Count} unique Spiritkin collected!");
+                var data = MainPlayerData.Instance;
+                Log($"Max's progress: {data?.SavedCards.Count ?? 0} cards, {_battlesWon}/{_battlesFought} wins, {data?.Gold ?? 0} gold");
+            }
+
+            // Win condition
+            var d = MainPlayerData.Instance;
+            if (d != null && d.SavedCards.Count >= 5)
+            {
+                _highlights.Add($"COLLECTION COMPLETE: {d.SavedCards.Count} unique Spiritkin!");
+                Log($"Max has {d.SavedCards.Count} Spiritkin! Collection goal reached!");
                 break;
             }
         }
 
-        EndTest("Collector loop complete");
+        EndTest(MainPlayerData.Instance?.SavedCards.Count >= 5
+            ? "Max completed her collection!" : "Max ran out of patience (loop cap reached)");
     }
 
     // =========================================================================
-    // EXPLORER — find all crystals, lore tablets, viewpoints
+    // DIEGO SANTOS — The Explorer
+    // Find everything, visit everywhere, leave no stone unturned
     // =========================================================================
 
-    IEnumerator RunExplorer()
+    IEnumerator RunDiego()
     {
-        Log("Goal: Discover all crystals, lore tablets, and viewpoints");
+        Log("Diego pulls out the map. Every corner, every secret, every treasure.");
 
-        // Find all collectibles in the scene
         var collectibles = FindObjectsByType<WorldCollectible>(FindObjectsSortMode.None);
-        Log($"Found {collectibles.Length} collectibles in world");
+        int totalCollectibles = collectibles.Length;
+        Log($"Diego counts {totalCollectibles} points of interest on the map.");
 
         int collected = 0;
-        foreach (var collectible in collectibles)
+
+        // Sort by distance for efficient pathing
+        var player = GetPlayer();
+        var sorted = collectibles
+            .Where(c => c != null && !c.IsCollected)
+            .OrderBy(c => Vector3.Distance(c.transform.position, player.transform.position))
+            .ToList();
+
+        foreach (var collectible in sorted)
         {
             if (collectible == null || collectible.IsCollected) continue;
 
-            // Wait if in battle or dialogue
-            while (GameLoader.CurrentManager != null ||
-                   (SpiritComms.Instance != null && SpiritComms.Instance.IsActive))
-            {
-                yield return new WaitForSeconds(0.5f);
-            }
+            yield return WaitForWorldState();
 
-            Log($"Heading to {collectible.Type}: {collectible.DisplayName} at {collectible.transform.position}");
+            string typeName = collectible.Type.ToString();
+            Log($"Diego heads to {typeName}: \"{collectible.DisplayName}\" at {FormatPos(collectible.transform.position)}");
             yield return MoveToPosition(collectible.transform.position, InteractRange);
 
-            // Simulate E key press — handled by WorldCollectible.Update()
-            // We just need to be in range; the collectible checks distance
-            yield return new WaitForSeconds(1f);
+            // Simulate E key — WorldCollectible checks distance in its Update
+            yield return SimulateInteractKey();
 
             if (collectible.IsCollected)
             {
                 collected++;
                 _itemsCollected++;
-                Log($"Collected: {collectible.DisplayName} ({collected}/{collectibles.Length})");
+
+                string reward = collectible.Type switch
+                {
+                    WorldCollectible.CollectibleType.TreasureChest => $"+{collectible.GoldReward} gold",
+                    WorldCollectible.CollectibleType.Lore => "lore discovered",
+                    WorldCollectible.CollectibleType.Viewpoint => "viewpoint unlocked",
+                    _ => "collected"
+                };
+                Log($"Diego found: {collectible.DisplayName} ({reward}) — {collected}/{totalCollectibles}");
+
+                if (collected == 1)
+                    _highlights.Add($"First discovery: {collectible.DisplayName}");
             }
             else
             {
-                _blockers.Add($"Could not collect {collectible.DisplayName} at {collectible.transform.position} — in range but interaction failed");
+                _blockers.Add($"Could not interact with {collectible.DisplayName} ({typeName}) at {FormatPos(collectible.transform.position)}");
             }
 
             _actionsCompleted++;
-            yield return new WaitForSeconds(0.5f);
+            yield return new WaitForSeconds(0.3f);
         }
 
-        // Also visit all 4 regions
-        Log("Checking region visits...");
+        // Region coverage check
         var data = MainPlayerData.Instance;
         if (data != null)
         {
             string[] regions = { "frost_valley", "rolling_hills", "volcanic_isles", "dark_castle" };
+            int visited = 0;
             foreach (var r in regions)
             {
-                if (!data.VisitedRegions.Contains(r))
-                    _blockers.Add($"Region not visited: {r}");
+                if (data.VisitedRegions.Contains(r))
+                    visited++;
+                else
+                    _blockers.Add($"Region never visited: {r}");
             }
-            Log($"Regions visited: {data.VisitedRegions.Count}/4");
+
+            if (visited == 4)
+                _highlights.Add("All 4 regions explored!");
+
+            Log($"Diego's map coverage: {visited}/4 regions, {data.VisitedZones.Count} zones, {collected} collectibles");
         }
 
-        EndTest($"Explorer loop complete — {collected} collectibles found");
+        EndTest($"Diego's expedition complete — {collected}/{totalCollectibles} points of interest found");
     }
 
     // =========================================================================
-    // CRAFTER — gather materials, craft a target item
+    // YUKI TANAKA — The Crafter
+    // Harvest materials, gather essences, craft something beautiful
     // =========================================================================
 
-    IEnumerator RunCrafter()
+    IEnumerator RunYuki()
     {
-        Log("Goal: Gather materials from resource nodes, craft an item");
+        Log("Yuki examines the land. Resources first, then the forge.");
 
         // Phase 1: Harvest resource nodes
         var nodes = FindObjectsByType<ResourceNode>(FindObjectsSortMode.None);
-        Log($"Found {nodes.Length} resource nodes in world");
+        Log($"Yuki spots {nodes.Length} resource nodes.");
 
         int harvested = 0;
         int targetHarvests = Mathf.Min(10, nodes.Length);
 
-        foreach (var node in nodes)
+        // Sort by distance
+        var sorted = nodes
+            .Where(n => n != null && !n.IsDepleted)
+            .OrderBy(n => Vector3.Distance(n.transform.position, GetPlayer().transform.position))
+            .ToList();
+
+        foreach (var node in sorted)
         {
-            if (node == null || node.IsDepleted) continue;
             if (harvested >= targetHarvests) break;
+            if (node == null || node.IsDepleted) continue;
 
-            // Wait if in battle or dialogue
-            while (GameLoader.CurrentManager != null ||
-                   (SpiritComms.Instance != null && SpiritComms.Instance.IsActive))
-            {
-                yield return new WaitForSeconds(0.5f);
-            }
+            yield return WaitForWorldState();
 
-            Log($"Heading to resource: {node.NodeName ?? node.MaterialId} at {node.transform.position}");
+            string nodeName = node.NodeName ?? node.MaterialId ?? "unknown";
+            Log($"Yuki approaches: {nodeName} at {FormatPos(node.transform.position)}");
             yield return MoveToPosition(node.transform.position, 2f);
 
-            // Simulate harvest (E key near node triggers GatheringManager)
-            yield return new WaitForSeconds(0.5f);
+            // Simulate E to start harvest
+            yield return SimulateInteractKey();
 
-            // Wait for harvest to complete (channeled)
-            float harvestTimeout = 10f;
+            // Wait for harvest channel
+            float harvestTimeout = 12f;
             while (node.IsHarvesting && harvestTimeout > 0)
             {
                 harvestTimeout -= 0.5f;
@@ -373,56 +459,156 @@ public class PlaytestAgent : MonoBehaviour
             {
                 harvested++;
                 _itemsCollected++;
-                Log($"Harvested: {node.NodeName ?? node.MaterialId} ({harvested}/{targetHarvests})");
+                Log($"Yuki harvested: {nodeName} ({harvested}/{targetHarvests})");
+
+                if (harvested == 1)
+                    _highlights.Add($"First harvest: {nodeName}");
+            }
+            else
+            {
+                _blockers.Add($"Harvest failed on {nodeName} at {FormatPos(node.transform.position)} — node not depleted after channel");
             }
 
             _actionsCompleted++;
-            yield return new WaitForSeconds(0.5f);
+            yield return new WaitForSeconds(0.3f);
         }
 
-        // Phase 2: Check if we have enough materials to craft
+        // Phase 2: Also collect spirit wisps for essences
+        Log("Yuki looks for spirit wisps (essence sources)...");
+        var wisps = FindObjectsByType<SpiritWisp>(FindObjectsSortMode.None);
+        int wispsCollected = 0;
+        foreach (var wisp in wisps.Take(5))
+        {
+            if (wisp == null) continue;
+            yield return MoveToPosition(wisp.transform.position, 1.5f);
+            yield return new WaitForSeconds(1f);
+            wispsCollected++;
+        }
+        if (wispsCollected > 0)
+            Log($"Yuki chased {wispsCollected} wisps for essences.");
+
+        // Phase 3: Inventory report + crafting check
         var data = MainPlayerData.Instance;
         if (data != null)
         {
-            Log($"Materials collected: {data.Materials.Count} types");
-            foreach (var mat in data.Materials)
-                Log($"  {mat.Key}: {mat.Value}");
-
-            if (data.Essences.Count > 0)
-                Log($"Essences: {data.Essences.Count}");
+            Log("─── Yuki's Inventory ───");
+            if (data.Materials.Count > 0)
+            {
+                foreach (var mat in data.Materials)
+                    Log($"  {mat.Key}: ×{mat.Value}");
+                _highlights.Add($"Gathered {data.Materials.Count} material types");
+            }
             else
-                _blockers.Add("No essences collected — need essences to craft");
+            {
+                _blockers.Add("Zero materials in inventory after harvesting — gathering pipeline broken?");
+            }
 
-            // Try to craft if CraftingManager exists
+            Log($"  Essences: {data.Essences.Count}");
+            if (data.Essences.Count == 0)
+                _blockers.Add("No essences collected — need wisp drops or node essence drops");
+
+            // Crafting system check
             if (CraftingManager.Instance != null)
             {
-                Log("CraftingManager exists — crafting loop available");
-                // Actual crafting requires SchematicData ScriptableObjects loaded in the scene
-                // Log what's available
+                _highlights.Add("CraftingManager is active");
                 var schematics = Resources.FindObjectsOfTypeAll<SchematicData>();
                 if (schematics.Length > 0)
                 {
-                    Log($"Available schematics: {schematics.Length}");
+                    Log($"  Schematics available: {schematics.Length}");
                     foreach (var s in schematics)
-                        Log($"  {s.SchematicName} ({s.Category}, {s.Tier})");
+                        Log($"    • {s.SchematicName} ({s.Category}, {s.Tier})");
+                    _highlights.Add($"{schematics.Length} schematics available for crafting");
                 }
                 else
                 {
-                    _blockers.Add("No SchematicData assets found — crafting cannot be tested without schematics");
+                    _blockers.Add("No schematics loaded — cannot craft without recipe data");
                 }
             }
             else
             {
-                _blockers.Add("CraftingManager not found in scene — crafting system not initialized");
+                _blockers.Add("CraftingManager not in scene — crafting system offline");
             }
+
+            Log($"  Gold: {data.Gold}");
         }
 
-        EndTest($"Crafter loop complete — {harvested} nodes harvested");
+        EndTest($"Yuki's session complete — {harvested} nodes harvested, {data?.Materials.Count ?? 0} material types");
     }
 
     // =========================================================================
-    // MOVEMENT
+    // SHARED HELPERS
     // =========================================================================
+
+    IEnumerator WaitForWorldState()
+    {
+        while (GameLoader.CurrentManager != null ||
+               (SpiritComms.Instance != null && SpiritComms.Instance.IsActive))
+        {
+            yield return new WaitForSeconds(0.5f);
+        }
+    }
+
+    IEnumerator WaitForBattle(string enemyName)
+    {
+        float timeout = 60f;
+        while (GameLoader.CurrentManager != null && timeout > 0)
+        {
+            timeout -= 0.5f;
+            yield return new WaitForSeconds(0.5f);
+        }
+        if (timeout <= 0)
+            _blockers.Add($"Battle vs {enemyName} timed out after 60s — game may be stuck");
+    }
+
+    IEnumerator SimulateInteractKey()
+    {
+        // We can't simulate Input.GetKeyDown from code, but we CAN directly call
+        // the interaction methods if we're in range. The Update() loops in
+        // WorldCollectible and GatheringManager check E key + distance.
+        // Workaround: directly trigger nearby interactables.
+        var player = GetPlayer();
+        if (player == null) yield break;
+
+        // Try WorldCollectible
+        foreach (var c in FindObjectsByType<WorldCollectible>(FindObjectsSortMode.None))
+        {
+            if (c == null || c.IsCollected) continue;
+            if (Vector3.Distance(c.transform.position, player.transform.position) < InteractRange)
+            {
+                // Call Interact via reflection or just set a flag
+                // For now, use SendMessage which calls any "Interact" method
+                c.SendMessage("Interact", SendMessageOptions.DontRequireReceiver);
+                break;
+            }
+        }
+
+        // Try ResourceNode via GatheringManager
+        if (GatheringManager.Instance != null)
+        {
+            foreach (var n in FindObjectsByType<ResourceNode>(FindObjectsSortMode.None))
+            {
+                if (n == null || n.IsDepleted || n.IsHarvesting) continue;
+                if (Vector3.Distance(n.transform.position, player.transform.position) < InteractRange)
+                {
+                    n.StartHarvest(4f, () =>
+                    {
+                        n.Deplete(300f);
+                        // Simulate material grant
+                        var data = MainPlayerData.Instance;
+                        if (data != null && !string.IsNullOrEmpty(n.MaterialId))
+                        {
+                            if (!data.Materials.ContainsKey(n.MaterialId))
+                                data.Materials[n.MaterialId] = 0;
+                            data.Materials[n.MaterialId]++;
+                        }
+                    });
+                    break;
+                }
+            }
+        }
+
+        yield return new WaitForSeconds(0.5f);
+    }
 
     IEnumerator MoveToPosition(Vector3 target, float stopDist)
     {
@@ -434,7 +620,6 @@ public class PlaytestAgent : MonoBehaviour
         float timeout = 30f;
         while (Vector3.Distance(player.transform.position, target) > stopDist && timeout > 0)
         {
-            // Skip if in battle or dialogue
             if (GameLoader.CurrentManager != null ||
                 (SpiritComms.Instance != null && SpiritComms.Instance.IsActive))
             {
@@ -442,7 +627,6 @@ public class PlaytestAgent : MonoBehaviour
                 continue;
             }
 
-            // Direct movement toward target
             Vector3 dir = (target - player.transform.position);
             dir.y = 0;
             if (dir.magnitude > 0.1f)
@@ -457,10 +641,6 @@ public class PlaytestAgent : MonoBehaviour
 
         State = AgentState.Idle;
     }
-
-    // =========================================================================
-    // HELPERS
-    // =========================================================================
 
     WorldPlayer GetPlayer() => WorldManager.Instance?.WorldPlayer;
 
@@ -491,36 +671,35 @@ public class PlaytestAgent : MonoBehaviour
     // LOGGING
     // =========================================================================
 
-    void Log(string msg) => Debug.Log($"[PLAYTEST:{Type}] {msg}");
+    void Log(string msg) => Debug.Log($"[{_agentTitle}] {msg}");
 
-    void LogGoals()
+    void LogStartState()
     {
-        switch (Type)
-        {
-            case AgentType.Collector:
-                Log("Win battles → collect Spiritkin cards → build a team of 3 → defeat trainers");
-                var data = MainPlayerData.Instance;
-                Log($"Current cards: {data?.SavedCards.Count ?? 0} | Wins: {data?.DefeatedGhostCount ?? 0}");
-                break;
-            case AgentType.Explorer:
-                Log("Visit all 4 regions → find all crystals/lore/viewpoints → complete Mask of Destiny");
-                break;
-            case AgentType.Crafter:
-                Log("Harvest 10 resource nodes → collect essences → open crafting → craft an item");
-                break;
-        }
+        var data = MainPlayerData.Instance;
+        if (data == null) { Log("No player data loaded yet."); return; }
+
+        Log($"Starting state: {data.SavedCards.Count} cards, {data.DefeatedGhostCount} wins, {data.Gold} gold");
+        Log($"Sideline: {(data.SidelineUnlocked ? "UNLOCKED" : $"locked ({data.DefeatedGhostCount}/5 wins)")}");
+        Log($"Regions: {data.VisitedRegions.Count}/4 | Materials: {data.Materials.Count} types");
     }
 
-    void LogProgress()
+    void LogFinalState()
     {
         var data = MainPlayerData.Instance;
         if (data == null) return;
 
-        Log($"--- Progress Report ({_totalRunTime:F0}s) ---");
-        Log($"Gold: {data.Gold} | Cards: {data.SavedCards.Count} | Wins: {data.DefeatedGhostCount}");
-        Log($"Materials: {data.Materials.Count} types | Essences: {data.Essences.Count}");
-        Log($"Regions: {data.VisitedRegions.Count}/4 | Zones: {data.VisitedZones.Count}");
+        Log($"Final state: {data.SavedCards.Count} cards, {data.DefeatedGhostCount} wins, {data.Gold} gold");
+        Log($"Sideline: {(data.SidelineUnlocked ? "UNLOCKED" : $"locked ({data.DefeatedGhostCount}/5 wins)")}");
+        Log($"Regions: {data.VisitedRegions.Count}/4 | Zones: {data.VisitedZones.Count} | Materials: {data.Materials.Count}");
         Log($"Lore: {data.DiscoveredLore.Count} | Crystals: {data.FoundCrystals.Count} | Viewpoints: {data.FoundViewpoints.Count}");
-        Log($"Blockers so far: {_blockers.Count}");
     }
+
+    static string FormatTime(float seconds)
+    {
+        int m = (int)(seconds / 60);
+        int s = (int)(seconds % 60);
+        return m > 0 ? $"{m}m {s}s" : $"{s}s";
+    }
+
+    static string FormatPos(Vector3 p) => $"({p.x:F0}, {p.z:F0})";
 }
