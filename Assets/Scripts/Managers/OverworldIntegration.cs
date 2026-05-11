@@ -544,8 +544,8 @@ public class OverworldIntegration : MonoBehaviour
                 data.CharacterCreated = true;
                 data.Gold = 100;
 
-                // Grant starter Spiritkin: Snorton, Castle Guards, or Gary
-                int[] starterIds = { 66, 39, 91 }; // Snorton, Castle Guards, Gary
+                // Grant starter Spiritkin: Castle Guards (strong 7HP), Snorton, or Gary
+                int[] starterIds = { 39, 66, 91 }; // Castle Guards, Snorton, Gary
                 string starterName = "a Spiritkin";
                 foreach (int id in starterIds)
                 {

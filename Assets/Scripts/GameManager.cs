@@ -190,8 +190,8 @@ public class GameManager : MonoBehaviour
         {
             Debug.LogWarning("[GameManager] Player has no SlottedCardIds! Granting starter Spiritkin.");
             playerCardIds = new List<string>();
-            // Try Snorton (66), Castle Guards (39), Gary (91) — then fallback to any
-            int[] starterIds = { 66, 39, 91 };
+            // Try Castle Guards (39), Snorton (66), Gary (91) — then fallback to any
+            int[] starterIds = { 39, 66, 91 };
             int needed = MainPlayerData.Instance.EffectiveTeamSize;
             foreach (int id in starterIds)
             {
