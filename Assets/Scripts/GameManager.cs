@@ -366,28 +366,26 @@ public class GameManager : MonoBehaviour
         foeTMP.alignment = TextAlignmentOptions.Center;
 
         // ── Player HP text (below player card) ──
-        var playerHP = CreateOverlayElement(ct, "PlayerHP", new Vector2(0.08f, 0.1f), new Vector2(0.38f, 0.17f));
+        var playerHP = CreateOverlayElement(ct, "PlayerHP", new Vector2(0.08f, 0.1f), new Vector2(0.38f, 0.18f));
         _playerHPText = playerHP.AddComponent<TextMeshProUGUI>();
         string pName = ClientPlayer.ActiveCard?.CardName ?? "???";
-        int pHP = ClientPlayer.ActiveCard?.Health ?? 0;
-        int pMax = ClientPlayer.ActiveCard?.MaxHealth ?? 0;
-        _playerHPText.text = $"{pName}  HP {pHP}/{pMax}";
-        _playerHPText.fontSize = 18;
-        _playerHPText.fontStyle = FontStyles.Bold;
+        int pMax = ClientPlayer.ActiveCard?.MaxHealth ?? 1;
+        _playerHPText.text = $"{pName}  <b>HP {pMax}/{pMax}</b>";
+        _playerHPText.fontSize = 20;
         _playerHPText.color = new Color(0.15f, 0.15f, 0.15f);
         _playerHPText.alignment = TextAlignmentOptions.Center;
+        _playerHPText.enableWordWrapping = false;
 
         // ── Enemy HP text (above enemy card, right-aligned) ──
-        var enemyHP = CreateOverlayElement(ct, "EnemyHP", new Vector2(0.62f, 0.83f), new Vector2(0.92f, 0.9f));
+        var enemyHP = CreateOverlayElement(ct, "EnemyHP", new Vector2(0.62f, 0.83f), new Vector2(0.92f, 0.91f));
         _enemyHPText = enemyHP.AddComponent<TextMeshProUGUI>();
         string eName = EnemyPlayer.ActiveCard?.CardName ?? "???";
-        int eHP = EnemyPlayer.ActiveCard?.Health ?? 0;
-        int eMax = EnemyPlayer.ActiveCard?.MaxHealth ?? 0;
-        _enemyHPText.text = $"{eName}  HP {eHP}/{eMax}";
-        _enemyHPText.fontSize = 18;
-        _enemyHPText.fontStyle = FontStyles.Bold;
+        int eMax = EnemyPlayer.ActiveCard?.MaxHealth ?? 1;
+        _enemyHPText.text = $"{eName}  <b>HP {eMax}/{eMax}</b>";
+        _enemyHPText.fontSize = 20;
         _enemyHPText.color = new Color(0.15f, 0.15f, 0.15f);
         _enemyHPText.alignment = TextAlignmentOptions.Right;
+        _enemyHPText.enableWordWrapping = false;
 
         // ── FIGHT button (left of the pair) ──
         var fightGO = CreateOverlayElement(ct, "FightBtn", new Vector2(0.62f, 0.03f), new Vector2(0.76f, 0.1f));
@@ -429,21 +427,29 @@ public class GameManager : MonoBehaviour
 
         if (_playerHPText != null && ClientPlayer.ActiveCard != null)
         {
-            int hp = ClientPlayer.ActiveCard.Health;
-            int max = ClientPlayer.ActiveCard.MaxHealth;
-            _playerHPText.text = $"{ClientPlayer.ActiveCard.CardName}  HP {hp}/{max}";
-            _playerHPText.color = hp <= 0 ? new Color(0.5f, 0.15f, 0.1f) :
-                hp <= max * 0.33f ? new Color(0.8f, 0.2f, 0.1f) :
+            var card = ClientPlayer.ActiveCard;
+            int hp = card.Health > 0 ? card.Health : card.MaxHealth; // Use MaxHP if Health not yet set
+            int max = card.MaxHealth;
+            if (max <= 0) max = 1;
+            _playerHPText.text = $"{card.CardName}  <b>HP {hp}/{max}</b>";
+            float pct = (float)hp / max;
+            _playerHPText.color = pct <= 0 ? new Color(0.5f, 0.15f, 0.1f) :
+                pct <= 0.33f ? new Color(0.8f, 0.2f, 0.1f) :
+                pct <= 0.66f ? new Color(0.7f, 0.5f, 0.1f) :
                 new Color(0.15f, 0.15f, 0.15f);
         }
 
         if (_enemyHPText != null && EnemyPlayer.ActiveCard != null)
         {
-            int hp = EnemyPlayer.ActiveCard.Health;
-            int max = EnemyPlayer.ActiveCard.MaxHealth;
-            _enemyHPText.text = $"{EnemyPlayer.ActiveCard.CardName}  HP {hp}/{max}";
-            _enemyHPText.color = hp <= 0 ? new Color(0.5f, 0.15f, 0.1f) :
-                hp <= max * 0.33f ? new Color(0.8f, 0.2f, 0.1f) :
+            var card = EnemyPlayer.ActiveCard;
+            int hp = card.Health > 0 ? card.Health : card.MaxHealth;
+            int max = card.MaxHealth;
+            if (max <= 0) max = 1;
+            _enemyHPText.text = $"{card.CardName}  <b>HP {hp}/{max}</b>";
+            float pct = (float)hp / max;
+            _enemyHPText.color = pct <= 0 ? new Color(0.5f, 0.15f, 0.1f) :
+                pct <= 0.33f ? new Color(0.8f, 0.2f, 0.1f) :
+                pct <= 0.66f ? new Color(0.7f, 0.5f, 0.1f) :
                 new Color(0.15f, 0.15f, 0.15f);
         }
     }
