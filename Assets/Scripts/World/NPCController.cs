@@ -890,6 +890,10 @@ public class NPCController : Interactable
 
     void StartTrainerBattle()
     {
+        // Prevent re-triggering while dialogue is already showing
+        if (SpiritComms.Instance != null && SpiritComms.Instance.IsActive)
+            return;
+
         if (TrainerTeam == null || TrainerTeam.Length == 0)
         {
             Debug.LogWarning($"[NPC] Trainer {NPCName} has no team configured.");
@@ -1074,6 +1078,13 @@ public class NPCController : Interactable
     void UpdateTrainerAggro()
     {
         if (_playerTransform == null || IsTrainerOnCooldown()) return;
+
+        // Don't aggro while dialogue is active (prevents infinite dialogue loop)
+        if (SpiritComms.Instance != null && SpiritComms.Instance.IsActive)
+        {
+            _isChasing = false;
+            return;
+        }
 
         // Don't aggro if player is invincible (just returned from battle)
         var wp = WorldManager.Instance?.WorldPlayer;
