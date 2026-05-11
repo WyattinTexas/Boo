@@ -44,6 +44,14 @@ public class GameManager : MonoBehaviour
     
     [HideInEditorMode, ReadOnly] public Canvas Canvas;
     [HideInEditorMode, ReadOnly] public GraphicRaycaster Caster;
+
+    // Clean battle UI overlay
+    GameObject _battleBg;
+    TextMeshProUGUI _battleHeader;
+    TextMeshProUGUI _youLabel;
+    TextMeshProUGUI _foeLabel;
+    Button _fightBtn;
+    Button _runBtn;
     [Space]
     [HideInEditorMode, ReadOnly] public bool HasGameStarted = false;
     [HideInEditorMode, ReadOnly] public GameInfo GameInfo = null;
@@ -251,6 +259,9 @@ public class GameManager : MonoBehaviour
         //Spawn opponent cards.
         yield return EnemyPlayer.SpawnCards(opponentCards);
 
+        // Build the clean battle UI overlay
+        BuildBattleUI();
+
         //Must be after the cards are slotted.
         HasGameStarted = true;
         //Entered play on start cards.
@@ -264,6 +275,146 @@ public class GameManager : MonoBehaviour
 
         startCor.OnCorEnd();
         yield return null;
+    }
+
+    // =========================================================================
+    // CLEAN BATTLE UI — light background, header, labels, FIGHT/RUN
+    // =========================================================================
+
+    void BuildBattleUI()
+    {
+        if (Canvas == null) return;
+        var canvasTransform = Canvas.transform;
+
+        // ── Light background ──
+        _battleBg = new GameObject("BattleBG", typeof(RectTransform), typeof(Image));
+        _battleBg.transform.SetParent(canvasTransform, false);
+        _battleBg.transform.SetAsFirstSibling(); // Behind everything
+        var bgRect = _battleBg.GetComponent<RectTransform>();
+        bgRect.anchorMin = Vector2.zero;
+        bgRect.anchorMax = Vector2.one;
+        bgRect.offsetMin = Vector2.zero;
+        bgRect.offsetMax = Vector2.zero;
+        _battleBg.GetComponent<Image>().color = new Color(0.91f, 0.89f, 0.88f, 1f); // Warm off-white
+        _battleBg.GetComponent<Image>().raycastTarget = false;
+
+        // ── Battle header — "[Enemy] challenges you!" ──
+        var headerGO = new GameObject("BattleHeader", typeof(RectTransform), typeof(TextMeshProUGUI));
+        headerGO.transform.SetParent(canvasTransform, false);
+        _battleHeader = headerGO.GetComponent<TextMeshProUGUI>();
+        _battleHeader.fontSize = 28;
+        _battleHeader.fontStyle = FontStyles.Bold;
+        _battleHeader.color = new Color(0.15f, 0.15f, 0.15f);
+        _battleHeader.alignment = TextAlignmentOptions.Center;
+        _battleHeader.enableWordWrapping = false;
+        var headerRect = headerGO.GetComponent<RectTransform>();
+        headerRect.anchorMin = new Vector2(0, 1);
+        headerRect.anchorMax = new Vector2(1, 1);
+        headerRect.pivot = new Vector2(0.5f, 1);
+        headerRect.sizeDelta = new Vector2(0, 50);
+        headerRect.anchoredPosition = new Vector2(0, -10);
+
+        // Set header text based on battle type
+        string enemyName = EnemyPlayer.ActiveCard != null ? EnemyPlayer.ActiveCard.CardName : "???";
+        if (IsTrainerBattle && GameInfo.LocationId.StartsWith("trainer_"))
+        {
+            string trainerName = GameInfo.LocationId.Substring("trainer_".Length);
+            _battleHeader.text = $"{trainerName} challenges you!";
+        }
+        else
+            _battleHeader.text = $"Wild {enemyName} appears!";
+
+        // ── "YOU" label ──
+        var youGO = new GameObject("YouLabel", typeof(RectTransform), typeof(TextMeshProUGUI));
+        youGO.transform.SetParent(canvasTransform, false);
+        _youLabel = youGO.GetComponent<TextMeshProUGUI>();
+        _youLabel.text = "YOU";
+        _youLabel.fontSize = 16;
+        _youLabel.fontStyle = FontStyles.Bold;
+        _youLabel.color = new Color(0.4f, 0.4f, 0.45f);
+        _youLabel.alignment = TextAlignmentOptions.Center;
+        var youRect = youGO.GetComponent<RectTransform>();
+        youRect.anchorMin = new Vector2(0.25f, 0.45f);
+        youRect.anchorMax = new Vector2(0.25f, 0.45f);
+        youRect.sizeDelta = new Vector2(80, 30);
+
+        // ── "FOE" label ──
+        var foeGO = new GameObject("FoeLabel", typeof(RectTransform), typeof(TextMeshProUGUI));
+        foeGO.transform.SetParent(canvasTransform, false);
+        _foeLabel = foeGO.GetComponent<TextMeshProUGUI>();
+        _foeLabel.text = "FOE";
+        _foeLabel.fontSize = 16;
+        _foeLabel.fontStyle = FontStyles.Bold;
+        _foeLabel.color = new Color(0.4f, 0.4f, 0.45f);
+        _foeLabel.alignment = TextAlignmentOptions.Center;
+        var foeRect = foeGO.GetComponent<RectTransform>();
+        foeRect.anchorMin = new Vector2(0.75f, 0.45f);
+        foeRect.anchorMax = new Vector2(0.75f, 0.45f);
+        foeRect.sizeDelta = new Vector2(80, 30);
+
+        // ── FIGHT button ──
+        var fightGO = new GameObject("FightBtn", typeof(RectTransform), typeof(Image), typeof(Button));
+        fightGO.transform.SetParent(canvasTransform, false);
+        fightGO.GetComponent<Image>().color = new Color(0.2f, 0.2f, 0.2f);
+        _fightBtn = fightGO.GetComponent<Button>();
+        var fightRect = fightGO.GetComponent<RectTransform>();
+        fightRect.anchorMin = new Vector2(1, 0);
+        fightRect.anchorMax = new Vector2(1, 0);
+        fightRect.pivot = new Vector2(1, 0);
+        fightRect.sizeDelta = new Vector2(120, 44);
+        fightRect.anchoredPosition = new Vector2(-20, 70);
+
+        var fightTextGO = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
+        fightTextGO.transform.SetParent(fightGO.transform, false);
+        var fightTMP = fightTextGO.GetComponent<TextMeshProUGUI>();
+        fightTMP.text = "FIGHT";
+        fightTMP.fontSize = 20;
+        fightTMP.fontStyle = FontStyles.Bold;
+        fightTMP.color = Color.white;
+        fightTMP.alignment = TextAlignmentOptions.Center;
+        var ftRect = fightTextGO.GetComponent<RectTransform>();
+        ftRect.anchorMin = Vector2.zero;
+        ftRect.anchorMax = Vector2.one;
+
+        // ── RUN button ──
+        var runGO = new GameObject("RunBtn", typeof(RectTransform), typeof(Image), typeof(Button));
+        runGO.transform.SetParent(canvasTransform, false);
+        runGO.GetComponent<Image>().color = new Color(0.6f, 0.15f, 0.1f);
+        _runBtn = runGO.GetComponent<Button>();
+        var runRect = runGO.GetComponent<RectTransform>();
+        runRect.anchorMin = new Vector2(1, 0);
+        runRect.anchorMax = new Vector2(1, 0);
+        runRect.pivot = new Vector2(1, 0);
+        runRect.sizeDelta = new Vector2(90, 44);
+        runRect.anchoredPosition = new Vector2(-150, 70);
+
+        var runTextGO = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
+        runTextGO.transform.SetParent(runGO.transform, false);
+        var runTMP = runTextGO.GetComponent<TextMeshProUGUI>();
+        runTMP.text = "RUN";
+        runTMP.fontSize = 20;
+        runTMP.fontStyle = FontStyles.Bold;
+        runTMP.color = Color.white;
+        runTMP.alignment = TextAlignmentOptions.Center;
+        var rtRect = runTextGO.GetComponent<RectTransform>();
+        rtRect.anchorMin = Vector2.zero;
+        rtRect.anchorMax = Vector2.one;
+
+        // Button actions
+        _runBtn.onClick.AddListener(() =>
+        {
+            Debug.Log("[GameManager] Player chose to RUN!");
+            EndGame(EnemyPlayer);
+        });
+
+        // FIGHT button is cosmetic for now — dice roll auto-starts on turn start
+        // Could be used for manual roll trigger in future
+        _fightBtn.onClick.AddListener(() =>
+        {
+            Debug.Log("[GameManager] FIGHT!");
+        });
+
+        Debug.Log("[GameManager] Clean battle UI built — light bg, header, FIGHT/RUN");
     }
 
     public void StartTurn()
