@@ -45,13 +45,11 @@ public class GameManager : MonoBehaviour
     [HideInEditorMode, ReadOnly] public Canvas Canvas;
     [HideInEditorMode, ReadOnly] public GraphicRaycaster Caster;
 
-    // Clean battle UI overlay
-    GameObject _battleBg;
+    // Clean battle overlay — separate ScreenSpaceOverlay canvas
+    Canvas _battleOverlayCanvas;
     TextMeshProUGUI _battleHeader;
-    TextMeshProUGUI _youLabel;
-    TextMeshProUGUI _foeLabel;
-    Button _fightBtn;
-    Button _runBtn;
+    TextMeshProUGUI _playerHPText;
+    TextMeshProUGUI _enemyHPText;
     [Space]
     [HideInEditorMode, ReadOnly] public bool HasGameStarted = false;
     [HideInEditorMode, ReadOnly] public GameInfo GameInfo = null;
@@ -126,11 +124,16 @@ public class GameManager : MonoBehaviour
 
         if (CurrentWinContext != null && !CurrentWinContext.IsTie && CurrentWinContext.LoserHealthChange != null)
             RollDamageText.text = $"{Mathf.Abs(CurrentWinContext.LoserHealthChange.Change.Amount)} Damage";
+
+        // Update the battle overlay HP text
+        UpdateBattleOverlay();
     }
 
     void OnDestroy()
     {
-        //DiceRoller.Instance.ClearDice();
+        // Clean up the battle overlay canvas
+        if (_battleOverlayCanvas != null)
+            Destroy(_battleOverlayCanvas.gameObject);
     }
 
     /// <summary>Whether the current game is a trainer battle (uses OverrideEnemyLineup, skip encounter dialogs).</summary>
@@ -259,8 +262,8 @@ public class GameManager : MonoBehaviour
         //Spawn opponent cards.
         yield return EnemyPlayer.SpawnCards(opponentCards);
 
-        // Build the clean battle UI overlay
-        BuildBattleUI();
+        // Build the clean battle overlay (separate canvas on top of everything)
+        BuildBattleOverlay();
 
         //Must be after the cards are slotted.
         HasGameStarted = true;
@@ -281,184 +284,183 @@ public class GameManager : MonoBehaviour
     // CLEAN BATTLE UI — light background, header, labels, FIGHT/RUN
     // =========================================================================
 
-    void BuildBattleUI()
+    // =========================================================================
+    // BATTLE OVERLAY — completely separate ScreenSpaceOverlay canvas
+    // Renders on top of everything. Own background, own card images, own buttons.
+    // The existing prefab card system runs underneath for game logic only.
+    // =========================================================================
+
+    void BuildBattleOverlay()
     {
-        if (Canvas == null) return;
-        var canvasTransform = Canvas.transform;
+        // Hide the original battle canvas so it doesn't show through
+        if (Canvas != null) Canvas.gameObject.SetActive(false);
 
-        // ── Light background — fully opaque to cover camera skybox ──
-        _battleBg = new GameObject("BattleBG", typeof(RectTransform), typeof(Image));
-        _battleBg.transform.SetParent(canvasTransform, false);
-        _battleBg.transform.SetAsFirstSibling(); // Behind everything
-        var bgRect = _battleBg.GetComponent<RectTransform>();
-        bgRect.anchorMin = Vector2.zero;
-        bgRect.anchorMax = Vector2.one;
-        bgRect.offsetMin = Vector2.zero;
-        bgRect.offsetMax = Vector2.zero;
-        _battleBg.GetComponent<Image>().color = new Color(0.92f, 0.90f, 0.87f, 1f); // Warm off-white, FULLY OPAQUE
-        _battleBg.GetComponent<Image>().raycastTarget = false;
+        // ── Create fresh ScreenSpaceOverlay canvas ──
+        var canvasGO = new GameObject("BattleOverlay");
+        _battleOverlayCanvas = canvasGO.AddComponent<Canvas>();
+        _battleOverlayCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        _battleOverlayCanvas.sortingOrder = 999;
+        var scaler = canvasGO.AddComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920, 1080);
+        canvasGO.AddComponent<GraphicRaycaster>();
+        var ct = canvasGO.transform;
 
-        // ── Reposition card slots: player LEFT, enemy RIGHT ──
-        RepositionCardSlots();
+        // ── Opaque off-white background ──
+        var bg = CreateOverlayElement(ct, "BG", Vector2.zero, Vector2.one);
+        bg.AddComponent<Image>().color = new Color(0.92f, 0.90f, 0.87f, 1f);
+        bg.GetComponent<Image>().raycastTarget = false;
 
-        // ── Battle header — "[Trainer] challenges you!" ──
-        var headerGO = new GameObject("BattleHeader", typeof(RectTransform), typeof(TextMeshProUGUI));
-        headerGO.transform.SetParent(canvasTransform, false);
-        _battleHeader = headerGO.GetComponent<TextMeshProUGUI>();
+        // ── Header: "[Trainer] challenges you!" ──
+        var header = CreateOverlayElement(ct, "Header", new Vector2(0, 0.9f), new Vector2(1, 0.97f));
+        _battleHeader = header.AddComponent<TextMeshProUGUI>();
         _battleHeader.fontSize = 28;
         _battleHeader.fontStyle = FontStyles.Bold;
         _battleHeader.color = new Color(0.15f, 0.15f, 0.15f);
         _battleHeader.alignment = TextAlignmentOptions.Center;
-        _battleHeader.enableWordWrapping = false;
-        var headerRect = headerGO.GetComponent<RectTransform>();
-        headerRect.anchorMin = new Vector2(0, 1);
-        headerRect.anchorMax = new Vector2(1, 1);
-        headerRect.pivot = new Vector2(0.5f, 1);
-        headerRect.sizeDelta = new Vector2(0, 50);
-        headerRect.anchoredPosition = new Vector2(0, -10);
 
-        // Set header text
         string enemyName = EnemyPlayer.ActiveCard != null ? EnemyPlayer.ActiveCard.CardName : "???";
         if (IsTrainerBattle && GameInfo.LocationId.StartsWith("trainer_"))
-        {
-            string trainerName = GameInfo.LocationId.Substring("trainer_".Length);
-            _battleHeader.text = $"{trainerName} challenges you!";
-        }
+            _battleHeader.text = $"{GameInfo.LocationId.Substring("trainer_".Length)} challenges you!";
         else
             _battleHeader.text = $"Wild {enemyName} appears!";
 
-        // ── "YOU" label — below player card (left side) ──
-        var youGO = new GameObject("YouLabel", typeof(RectTransform), typeof(TextMeshProUGUI));
-        youGO.transform.SetParent(canvasTransform, false);
-        _youLabel = youGO.GetComponent<TextMeshProUGUI>();
-        _youLabel.text = "YOU";
-        _youLabel.fontSize = 16;
-        _youLabel.fontStyle = FontStyles.Bold;
-        _youLabel.color = new Color(0.4f, 0.4f, 0.45f);
-        _youLabel.alignment = TextAlignmentOptions.Center;
-        var youRect = youGO.GetComponent<RectTransform>();
-        youRect.anchorMin = new Vector2(0.28f, 0.42f);
-        youRect.anchorMax = new Vector2(0.28f, 0.42f);
-        youRect.sizeDelta = new Vector2(80, 24);
+        // ── Player card image (LEFT) ──
+        var playerCard = CreateOverlayElement(ct, "PlayerCard", new Vector2(0.08f, 0.18f), new Vector2(0.38f, 0.82f));
+        var playerImg = playerCard.AddComponent<Image>();
+        playerImg.preserveAspect = true;
+        if (ClientPlayer.ActiveCard?.Icon?.sprite != null)
+            playerImg.sprite = ClientPlayer.ActiveCard.Icon.sprite;
 
-        // ── "FOE" label — below enemy card (right side) ──
-        var foeGO = new GameObject("FoeLabel", typeof(RectTransform), typeof(TextMeshProUGUI));
-        foeGO.transform.SetParent(canvasTransform, false);
-        _foeLabel = foeGO.GetComponent<TextMeshProUGUI>();
-        _foeLabel.text = "FOE";
-        _foeLabel.fontSize = 16;
-        _foeLabel.fontStyle = FontStyles.Bold;
-        _foeLabel.color = new Color(0.4f, 0.4f, 0.45f);
-        _foeLabel.alignment = TextAlignmentOptions.Center;
-        var foeRect = foeGO.GetComponent<RectTransform>();
-        foeRect.anchorMin = new Vector2(0.72f, 0.42f);
-        foeRect.anchorMax = new Vector2(0.72f, 0.42f);
-        foeRect.sizeDelta = new Vector2(80, 24);
+        // ── Enemy card image (RIGHT) ──
+        var enemyCard = CreateOverlayElement(ct, "EnemyCard", new Vector2(0.62f, 0.18f), new Vector2(0.92f, 0.82f));
+        var enemyImg = enemyCard.AddComponent<Image>();
+        enemyImg.preserveAspect = true;
+        if (EnemyPlayer.ActiveCard?.Icon?.sprite != null)
+            enemyImg.sprite = EnemyPlayer.ActiveCard.Icon.sprite;
 
-        // ── FIGHT button (dark, bottom-right) ──
-        var fightGO = new GameObject("FightBtn", typeof(RectTransform), typeof(Image), typeof(Button));
-        fightGO.transform.SetParent(canvasTransform, false);
-        fightGO.GetComponent<Image>().color = new Color(0.15f, 0.15f, 0.15f);
-        _fightBtn = fightGO.GetComponent<Button>();
-        var fightRect = fightGO.GetComponent<RectTransform>();
-        fightRect.anchorMin = new Vector2(1, 0);
-        fightRect.anchorMax = new Vector2(1, 0);
-        fightRect.pivot = new Vector2(1, 0);
-        fightRect.sizeDelta = new Vector2(130, 48);
-        fightRect.anchoredPosition = new Vector2(-20, 20);
+        // ── "YOU" / "FOE" labels (center between cards) ──
+        var youLabel = CreateOverlayElement(ct, "YouLabel", new Vector2(0.44f, 0.52f), new Vector2(0.56f, 0.58f));
+        var youTMP = youLabel.AddComponent<TextMeshProUGUI>();
+        youTMP.text = "YOU";
+        youTMP.fontSize = 16;
+        youTMP.fontStyle = FontStyles.Bold;
+        youTMP.color = new Color(0.4f, 0.4f, 0.45f);
+        youTMP.alignment = TextAlignmentOptions.Center;
 
-        var fightTextGO = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
-        fightTextGO.transform.SetParent(fightGO.transform, false);
-        var fightTMP = fightTextGO.GetComponent<TextMeshProUGUI>();
+        var foeLabel = CreateOverlayElement(ct, "FoeLabel", new Vector2(0.44f, 0.42f), new Vector2(0.56f, 0.48f));
+        var foeTMP = foeLabel.AddComponent<TextMeshProUGUI>();
+        foeTMP.text = "FOE";
+        foeTMP.fontSize = 16;
+        foeTMP.fontStyle = FontStyles.Bold;
+        foeTMP.color = new Color(0.4f, 0.4f, 0.45f);
+        foeTMP.alignment = TextAlignmentOptions.Center;
+
+        // ── Player HP text (below player card) ──
+        var playerHP = CreateOverlayElement(ct, "PlayerHP", new Vector2(0.08f, 0.1f), new Vector2(0.38f, 0.17f));
+        _playerHPText = playerHP.AddComponent<TextMeshProUGUI>();
+        string pName = ClientPlayer.ActiveCard?.CardName ?? "???";
+        int pHP = ClientPlayer.ActiveCard?.Health ?? 0;
+        int pMax = ClientPlayer.ActiveCard?.MaxHealth ?? 0;
+        _playerHPText.text = $"{pName}  HP {pHP}/{pMax}";
+        _playerHPText.fontSize = 18;
+        _playerHPText.fontStyle = FontStyles.Bold;
+        _playerHPText.color = new Color(0.15f, 0.15f, 0.15f);
+        _playerHPText.alignment = TextAlignmentOptions.Center;
+
+        // ── Enemy HP text (above enemy card, right-aligned) ──
+        var enemyHP = CreateOverlayElement(ct, "EnemyHP", new Vector2(0.62f, 0.83f), new Vector2(0.92f, 0.9f));
+        _enemyHPText = enemyHP.AddComponent<TextMeshProUGUI>();
+        string eName = EnemyPlayer.ActiveCard?.CardName ?? "???";
+        int eHP = EnemyPlayer.ActiveCard?.Health ?? 0;
+        int eMax = EnemyPlayer.ActiveCard?.MaxHealth ?? 0;
+        _enemyHPText.text = $"{eName}  HP {eHP}/{eMax}";
+        _enemyHPText.fontSize = 18;
+        _enemyHPText.fontStyle = FontStyles.Bold;
+        _enemyHPText.color = new Color(0.15f, 0.15f, 0.15f);
+        _enemyHPText.alignment = TextAlignmentOptions.Right;
+
+        // ── FIGHT button ──
+        var fightGO = CreateOverlayElement(ct, "FightBtn", new Vector2(0.76f, 0.03f), new Vector2(0.9f, 0.1f));
+        fightGO.AddComponent<Image>().color = new Color(0.15f, 0.15f, 0.15f);
+        fightGO.AddComponent<Button>();
+        var fightText = CreateOverlayChild(fightGO.transform, "Text");
+        var fightTMP = fightText.AddComponent<TextMeshProUGUI>();
         fightTMP.text = "FIGHT";
         fightTMP.fontSize = 22;
         fightTMP.fontStyle = FontStyles.Bold;
         fightTMP.color = Color.white;
         fightTMP.alignment = TextAlignmentOptions.Center;
-        var ftRect = fightTextGO.GetComponent<RectTransform>();
-        ftRect.anchorMin = Vector2.zero;
-        ftRect.anchorMax = Vector2.one;
 
-        // ── RUN button (red, next to FIGHT) ──
-        var runGO = new GameObject("RunBtn", typeof(RectTransform), typeof(Image), typeof(Button));
-        runGO.transform.SetParent(canvasTransform, false);
-        runGO.GetComponent<Image>().color = new Color(0.6f, 0.15f, 0.1f);
-        _runBtn = runGO.GetComponent<Button>();
-        var runRect = runGO.GetComponent<RectTransform>();
-        runRect.anchorMin = new Vector2(1, 0);
-        runRect.anchorMax = new Vector2(1, 0);
-        runRect.pivot = new Vector2(1, 0);
-        runRect.sizeDelta = new Vector2(90, 48);
-        runRect.anchoredPosition = new Vector2(-160, 20);
-
-        var runTextGO = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
-        runTextGO.transform.SetParent(runGO.transform, false);
-        var runTMP = runTextGO.GetComponent<TextMeshProUGUI>();
+        // ── RUN button ──
+        var runGO = CreateOverlayElement(ct, "RunBtn", new Vector2(0.62f, 0.03f), new Vector2(0.74f, 0.1f));
+        runGO.AddComponent<Image>().color = new Color(0.6f, 0.15f, 0.1f);
+        var runBtn = runGO.AddComponent<Button>();
+        var runText = CreateOverlayChild(runGO.transform, "Text");
+        var runTMP = runText.AddComponent<TextMeshProUGUI>();
         runTMP.text = "RUN";
         runTMP.fontSize = 22;
         runTMP.fontStyle = FontStyles.Bold;
         runTMP.color = Color.white;
         runTMP.alignment = TextAlignmentOptions.Center;
-        var rtRect = runTextGO.GetComponent<RectTransform>();
-        rtRect.anchorMin = Vector2.zero;
-        rtRect.anchorMax = Vector2.one;
 
-        // Button actions
-        _runBtn.onClick.AddListener(() =>
+        runBtn.onClick.AddListener(() =>
         {
             Debug.Log("[GameManager] Player chose to RUN!");
             EndGame(EnemyPlayer);
         });
 
-        _fightBtn.onClick.AddListener(() =>
-        {
-            Debug.Log("[GameManager] FIGHT!");
-        });
-
-        // Hide sideline slots (1v1 focus, no clutter)
-        foreach (var slot in ClientPlayer.SidelineSlots)
-            if (slot != null) slot.gameObject.SetActive(false);
-        foreach (var slot in EnemyPlayer.SidelineSlots)
-            if (slot != null) slot.gameObject.SetActive(false);
-
-        Debug.Log("[GameManager] Clean battle UI built — light bg, cards left/right, FIGHT/RUN");
+        Debug.Log("[GameManager] Battle overlay built — fresh canvas, sortingOrder 999");
     }
 
-    /// <summary>Split the two Player RectTransforms left/right across the canvas.</summary>
-    void RepositionCardSlots()
+    /// <summary>Update HP text each frame during battle.</summary>
+    void UpdateBattleOverlay()
     {
-        // The key insight: CardSlots are children of Player RectTransforms.
-        // We must move the PLAYER containers, not the individual slots.
-        // Player.RectTrans is the public RectTransform field on each Player.
+        if (_battleOverlayCanvas == null) return;
 
-        // ClientPlayer → left half of screen
-        if (ClientPlayer.RectTrans != null)
+        if (_playerHPText != null && ClientPlayer.ActiveCard != null)
         {
-            var rect = ClientPlayer.RectTrans;
-            rect.anchorMin = new Vector2(0.05f, 0f);
-            rect.anchorMax = new Vector2(0.45f, 1f);
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
-            rect.sizeDelta = Vector2.zero; // stretch to anchors
+            int hp = ClientPlayer.ActiveCard.Health;
+            int max = ClientPlayer.ActiveCard.MaxHealth;
+            _playerHPText.text = $"{ClientPlayer.ActiveCard.CardName}  HP {hp}/{max}";
+            _playerHPText.color = hp <= 0 ? new Color(0.5f, 0.15f, 0.1f) :
+                hp <= max * 0.33f ? new Color(0.8f, 0.2f, 0.1f) :
+                new Color(0.15f, 0.15f, 0.15f);
         }
 
-        // EnemyPlayer → right half of screen
-        if (EnemyPlayer.RectTrans != null)
+        if (_enemyHPText != null && EnemyPlayer.ActiveCard != null)
         {
-            var rect = EnemyPlayer.RectTrans;
-            rect.anchorMin = new Vector2(0.55f, 0f);
-            rect.anchorMax = new Vector2(0.95f, 1f);
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
-            rect.sizeDelta = Vector2.zero; // stretch to anchors
+            int hp = EnemyPlayer.ActiveCard.Health;
+            int max = EnemyPlayer.ActiveCard.MaxHealth;
+            _enemyHPText.text = $"{EnemyPlayer.ActiveCard.CardName}  HP {hp}/{max}";
+            _enemyHPText.color = hp <= 0 ? new Color(0.5f, 0.15f, 0.1f) :
+                hp <= max * 0.33f ? new Color(0.8f, 0.2f, 0.1f) :
+                new Color(0.15f, 0.15f, 0.15f);
         }
+    }
 
-        // Change camera background to off-white (kills the blue skybox)
-        if (Camera.main != null)
-        {
-            Camera.main.clearFlags = CameraClearFlags.SolidColor;
-            Camera.main.backgroundColor = new Color(0.92f, 0.90f, 0.87f, 1f);
-        }
+    static GameObject CreateOverlayElement(Transform parent, string name, Vector2 anchorMin, Vector2 anchorMax)
+    {
+        var go = new GameObject(name, typeof(RectTransform));
+        go.transform.SetParent(parent, false);
+        var rect = go.GetComponent<RectTransform>();
+        rect.anchorMin = anchorMin;
+        rect.anchorMax = anchorMax;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+        return go;
+    }
+
+    static GameObject CreateOverlayChild(Transform parent, string name)
+    {
+        var go = new GameObject(name, typeof(RectTransform));
+        go.transform.SetParent(parent, false);
+        var rect = go.GetComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+        return go;
     }
 
     public void StartTurn()

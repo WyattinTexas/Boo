@@ -10,7 +10,7 @@ using UnityEngine.UI;
 /// </summary>
 public class TitleScreen : MonoBehaviour
 {
-    public const string VERSION = "0.2.0";
+    public const string VERSION = "0.2.1";
 
     public static TitleScreen Instance { get; private set; }
     public static bool HasStarted { get; private set; }
