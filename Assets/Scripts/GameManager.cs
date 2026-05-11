@@ -286,7 +286,7 @@ public class GameManager : MonoBehaviour
         if (Canvas == null) return;
         var canvasTransform = Canvas.transform;
 
-        // ── Light background ──
+        // ── Light background — fully opaque to cover camera skybox ──
         _battleBg = new GameObject("BattleBG", typeof(RectTransform), typeof(Image));
         _battleBg.transform.SetParent(canvasTransform, false);
         _battleBg.transform.SetAsFirstSibling(); // Behind everything
@@ -295,10 +295,13 @@ public class GameManager : MonoBehaviour
         bgRect.anchorMax = Vector2.one;
         bgRect.offsetMin = Vector2.zero;
         bgRect.offsetMax = Vector2.zero;
-        _battleBg.GetComponent<Image>().color = new Color(0.91f, 0.89f, 0.88f, 1f); // Warm off-white
+        _battleBg.GetComponent<Image>().color = new Color(0.92f, 0.90f, 0.87f, 1f); // Warm off-white, FULLY OPAQUE
         _battleBg.GetComponent<Image>().raycastTarget = false;
 
-        // ── Battle header — "[Enemy] challenges you!" ──
+        // ── Reposition card slots: player LEFT, enemy RIGHT ──
+        RepositionCardSlots();
+
+        // ── Battle header — "[Trainer] challenges you!" ──
         var headerGO = new GameObject("BattleHeader", typeof(RectTransform), typeof(TextMeshProUGUI));
         headerGO.transform.SetParent(canvasTransform, false);
         _battleHeader = headerGO.GetComponent<TextMeshProUGUI>();
@@ -314,7 +317,7 @@ public class GameManager : MonoBehaviour
         headerRect.sizeDelta = new Vector2(0, 50);
         headerRect.anchoredPosition = new Vector2(0, -10);
 
-        // Set header text based on battle type
+        // Set header text
         string enemyName = EnemyPlayer.ActiveCard != null ? EnemyPlayer.ActiveCard.CardName : "???";
         if (IsTrainerBattle && GameInfo.LocationId.StartsWith("trainer_"))
         {
@@ -324,7 +327,7 @@ public class GameManager : MonoBehaviour
         else
             _battleHeader.text = $"Wild {enemyName} appears!";
 
-        // ── "YOU" label ──
+        // ── "YOU" label — below player card (left side) ──
         var youGO = new GameObject("YouLabel", typeof(RectTransform), typeof(TextMeshProUGUI));
         youGO.transform.SetParent(canvasTransform, false);
         _youLabel = youGO.GetComponent<TextMeshProUGUI>();
@@ -334,11 +337,11 @@ public class GameManager : MonoBehaviour
         _youLabel.color = new Color(0.4f, 0.4f, 0.45f);
         _youLabel.alignment = TextAlignmentOptions.Center;
         var youRect = youGO.GetComponent<RectTransform>();
-        youRect.anchorMin = new Vector2(0.25f, 0.45f);
-        youRect.anchorMax = new Vector2(0.25f, 0.45f);
-        youRect.sizeDelta = new Vector2(80, 30);
+        youRect.anchorMin = new Vector2(0.28f, 0.42f);
+        youRect.anchorMax = new Vector2(0.28f, 0.42f);
+        youRect.sizeDelta = new Vector2(80, 24);
 
-        // ── "FOE" label ──
+        // ── "FOE" label — below enemy card (right side) ──
         var foeGO = new GameObject("FoeLabel", typeof(RectTransform), typeof(TextMeshProUGUI));
         foeGO.transform.SetParent(canvasTransform, false);
         _foeLabel = foeGO.GetComponent<TextMeshProUGUI>();
@@ -348,27 +351,27 @@ public class GameManager : MonoBehaviour
         _foeLabel.color = new Color(0.4f, 0.4f, 0.45f);
         _foeLabel.alignment = TextAlignmentOptions.Center;
         var foeRect = foeGO.GetComponent<RectTransform>();
-        foeRect.anchorMin = new Vector2(0.75f, 0.45f);
-        foeRect.anchorMax = new Vector2(0.75f, 0.45f);
-        foeRect.sizeDelta = new Vector2(80, 30);
+        foeRect.anchorMin = new Vector2(0.72f, 0.42f);
+        foeRect.anchorMax = new Vector2(0.72f, 0.42f);
+        foeRect.sizeDelta = new Vector2(80, 24);
 
-        // ── FIGHT button ──
+        // ── FIGHT button (dark, bottom-right) ──
         var fightGO = new GameObject("FightBtn", typeof(RectTransform), typeof(Image), typeof(Button));
         fightGO.transform.SetParent(canvasTransform, false);
-        fightGO.GetComponent<Image>().color = new Color(0.2f, 0.2f, 0.2f);
+        fightGO.GetComponent<Image>().color = new Color(0.15f, 0.15f, 0.15f);
         _fightBtn = fightGO.GetComponent<Button>();
         var fightRect = fightGO.GetComponent<RectTransform>();
         fightRect.anchorMin = new Vector2(1, 0);
         fightRect.anchorMax = new Vector2(1, 0);
         fightRect.pivot = new Vector2(1, 0);
-        fightRect.sizeDelta = new Vector2(120, 44);
-        fightRect.anchoredPosition = new Vector2(-20, 70);
+        fightRect.sizeDelta = new Vector2(130, 48);
+        fightRect.anchoredPosition = new Vector2(-20, 20);
 
         var fightTextGO = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
         fightTextGO.transform.SetParent(fightGO.transform, false);
         var fightTMP = fightTextGO.GetComponent<TextMeshProUGUI>();
         fightTMP.text = "FIGHT";
-        fightTMP.fontSize = 20;
+        fightTMP.fontSize = 22;
         fightTMP.fontStyle = FontStyles.Bold;
         fightTMP.color = Color.white;
         fightTMP.alignment = TextAlignmentOptions.Center;
@@ -376,7 +379,7 @@ public class GameManager : MonoBehaviour
         ftRect.anchorMin = Vector2.zero;
         ftRect.anchorMax = Vector2.one;
 
-        // ── RUN button ──
+        // ── RUN button (red, next to FIGHT) ──
         var runGO = new GameObject("RunBtn", typeof(RectTransform), typeof(Image), typeof(Button));
         runGO.transform.SetParent(canvasTransform, false);
         runGO.GetComponent<Image>().color = new Color(0.6f, 0.15f, 0.1f);
@@ -385,14 +388,14 @@ public class GameManager : MonoBehaviour
         runRect.anchorMin = new Vector2(1, 0);
         runRect.anchorMax = new Vector2(1, 0);
         runRect.pivot = new Vector2(1, 0);
-        runRect.sizeDelta = new Vector2(90, 44);
-        runRect.anchoredPosition = new Vector2(-150, 70);
+        runRect.sizeDelta = new Vector2(90, 48);
+        runRect.anchoredPosition = new Vector2(-160, 20);
 
         var runTextGO = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
         runTextGO.transform.SetParent(runGO.transform, false);
         var runTMP = runTextGO.GetComponent<TextMeshProUGUI>();
         runTMP.text = "RUN";
-        runTMP.fontSize = 20;
+        runTMP.fontSize = 22;
         runTMP.fontStyle = FontStyles.Bold;
         runTMP.color = Color.white;
         runTMP.alignment = TextAlignmentOptions.Center;
@@ -407,14 +410,62 @@ public class GameManager : MonoBehaviour
             EndGame(EnemyPlayer);
         });
 
-        // FIGHT button is cosmetic for now — dice roll auto-starts on turn start
-        // Could be used for manual roll trigger in future
         _fightBtn.onClick.AddListener(() =>
         {
             Debug.Log("[GameManager] FIGHT!");
         });
 
-        Debug.Log("[GameManager] Clean battle UI built — light bg, header, FIGHT/RUN");
+        // Hide sideline slots (1v1 focus, no clutter)
+        foreach (var slot in ClientPlayer.SidelineSlots)
+            if (slot != null) slot.gameObject.SetActive(false);
+        foreach (var slot in EnemyPlayer.SidelineSlots)
+            if (slot != null) slot.gameObject.SetActive(false);
+
+        Debug.Log("[GameManager] Clean battle UI built — light bg, cards left/right, FIGHT/RUN");
+    }
+
+    /// <summary>Move player's active card to left side, enemy's to right side.</summary>
+    void RepositionCardSlots()
+    {
+        // Player active card — left-center
+        if (ClientPlayer.ActiveSlot != null)
+        {
+            var rect = ClientPlayer.ActiveSlot.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.15f, 0.3f);
+            rect.anchorMax = new Vector2(0.4f, 0.85f);
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+        }
+
+        // Enemy active card — right-center
+        if (EnemyPlayer.ActiveSlot != null)
+        {
+            var rect = EnemyPlayer.ActiveSlot.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.6f, 0.3f);
+            rect.anchorMax = new Vector2(0.85f, 0.85f);
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+        }
+
+        // Move player dice poses to below player card (left side)
+        if (ClientPlayer.DicePosesParent != null)
+        {
+            var rect = ClientPlayer.DicePosesParent;
+            rect.anchorMin = new Vector2(0.15f, 0.08f);
+            rect.anchorMax = new Vector2(0.4f, 0.28f);
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+        }
+
+        // Move enemy dice poses to below enemy card (right side)
+        if (EnemyPlayer.DicePosesParent != null)
+        {
+            var rect = EnemyPlayer.DicePosesParent;
+            rect.anchorMin = new Vector2(0.6f, 0.08f);
+            rect.anchorMax = new Vector2(0.85f, 0.28f);
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+        }
     }
 
     public void StartTurn()
