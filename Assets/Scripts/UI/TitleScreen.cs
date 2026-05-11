@@ -137,7 +137,7 @@ public class TitleScreen : MonoBehaviour
         btnRect.offsetMax = Vector2.zero;
 
         // Button outline (dark border)
-        var outline = btnGO.AddComponent<Outline>();
+        var outline = btnGO.AddComponent<UnityEngine.UI.Outline>();
         outline.effectColor = new Color(0.15f, 0.15f, 0.15f, 0.8f);
         outline.effectDistance = new Vector2(2, -2);
 
