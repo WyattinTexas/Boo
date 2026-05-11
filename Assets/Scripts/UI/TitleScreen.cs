@@ -4,9 +4,8 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Title screen overlay: player character stands by a tree in the live world.
-/// "BATTLE OF ORIGINS" title + START button. Press START → UI fades out → game begins.
-/// The world is already loaded and visible behind the overlay — no scene switch needed.
+/// Clean cinematic title screen. Hides ALL HUD, zooms camera in on the player,
+/// shows just "BATTLE OF ORIGINS" + START button. Press START → fade out → game begins.
 /// </summary>
 public class TitleScreen : MonoBehaviour
 {
@@ -18,19 +17,25 @@ public class TitleScreen : MonoBehaviour
     GameObject _overlay;
     bool _isActive;
 
+    // Saved state to restore after START
+    Vector3 _savedCamPos;
+    Quaternion _savedCamRot;
+    float _savedCamFov;
+
     void Awake()
     {
         if (Instance != null) { Destroy(gameObject); return; }
         Instance = this;
     }
 
-    /// <summary>Show the title screen. Call after the world scene is loaded.</summary>
     public void Show()
     {
-        if (HasStarted) return; // Don't show again after first play
+        if (HasStarted) return;
 
         _isActive = true;
-        BuildUI();
+
+        // Hide ALL HUD elements
+        HideHUD();
 
         // Freeze the player
         var player = WorldManager.Instance?.WorldPlayer;
@@ -38,14 +43,76 @@ public class TitleScreen : MonoBehaviour
         {
             var cc = player.GetComponent<CharacterController>();
             if (cc != null) cc.enabled = false;
+
+            // Rotate player to face the camera
+            player.transform.rotation = Quaternion.Euler(0, 180f, 0);
         }
 
-        Debug.Log("[TitleScreen] Showing — player frozen, waiting for START");
+        // Zoom camera in for cinematic framing
+        SetupCamera();
+
+        // Build minimal UI
+        BuildUI();
+
+        Debug.Log("[TitleScreen] Showing — HUD hidden, camera zoomed, waiting for START");
+    }
+
+    void SetupCamera()
+    {
+        var cam = Camera.main;
+        if (cam == null) return;
+
+        // Save current state to restore later
+        _savedCamPos = cam.transform.position;
+        _savedCamRot = cam.transform.rotation;
+        _savedCamFov = cam.fieldOfView;
+
+        // Position camera closer to the player, slightly above, looking down
+        var player = WorldManager.Instance?.WorldPlayer;
+        if (player != null)
+        {
+            Vector3 playerPos = player.transform.position;
+            cam.transform.position = playerPos + new Vector3(0, 3f, -5f);
+            cam.transform.LookAt(playerPos + Vector3.up * 1.5f);
+        }
+
+        // Tighter FOV for portrait feel
+        cam.fieldOfView = 40f;
+    }
+
+    void HideHUD()
+    {
+        // Hide the entire overlay canvas (HUD, chat, skill bars, everything)
+        if (OverworldIntegration.Instance?._overlayCanvas != null)
+        {
+            var canvasGO = OverworldIntegration.Instance._overlayCanvas.gameObject;
+            // Don't disable the canvas — we need it for our title UI
+            // Instead, hide all existing children
+            for (int i = 0; i < canvasGO.transform.childCount; i++)
+            {
+                var child = canvasGO.transform.GetChild(i);
+                child.gameObject.SetActive(false);
+            }
+        }
+    }
+
+    void ShowHUD()
+    {
+        if (OverworldIntegration.Instance?._overlayCanvas != null)
+        {
+            var canvasGO = OverworldIntegration.Instance._overlayCanvas.gameObject;
+            for (int i = 0; i < canvasGO.transform.childCount; i++)
+            {
+                var child = canvasGO.transform.GetChild(i);
+                // Don't re-show our overlay (it's being destroyed anyway)
+                if (child.name == "TitleScreenOverlay") continue;
+                child.gameObject.SetActive(true);
+            }
+        }
     }
 
     void BuildUI()
     {
-        // Find or create canvas
         _canvas = OverworldIntegration.Instance?._overlayCanvas;
         if (_canvas == null)
         {
@@ -54,10 +121,10 @@ public class TitleScreen : MonoBehaviour
             else return;
         }
 
-        // ── Full-screen overlay with CanvasGroup for fade ──
+        // ── Overlay container ──
         _overlay = new GameObject("TitleScreenOverlay");
         _overlay.transform.SetParent(_canvas.transform, false);
-        _overlay.transform.SetAsLastSibling(); // On top of everything
+        _overlay.transform.SetAsLastSibling();
 
         _overlayGroup = _overlay.AddComponent<CanvasGroup>();
         _overlayGroup.alpha = 1f;
@@ -69,37 +136,23 @@ public class TitleScreen : MonoBehaviour
         overlayRect.offsetMin = Vector2.zero;
         overlayRect.offsetMax = Vector2.zero;
 
-        // ── Subtle dark gradient at top and bottom for text readability ──
-        // Top gradient
+        // ── Subtle top vignette for title readability ──
         var topGrad = new GameObject("TopGrad", typeof(RectTransform), typeof(Image));
         topGrad.transform.SetParent(_overlay.transform, false);
-        var topImg = topGrad.GetComponent<Image>();
-        topImg.color = new Color(0, 0, 0, 0.4f);
-        topImg.raycastTarget = false;
+        topGrad.GetComponent<Image>().color = new Color(0, 0, 0, 0.35f);
+        topGrad.GetComponent<Image>().raycastTarget = false;
         var topRect = topGrad.GetComponent<RectTransform>();
-        topRect.anchorMin = new Vector2(0, 0.75f);
+        topRect.anchorMin = new Vector2(0, 0.7f);
         topRect.anchorMax = Vector2.one;
         topRect.offsetMin = Vector2.zero;
         topRect.offsetMax = Vector2.zero;
 
-        // Bottom gradient
-        var botGrad = new GameObject("BotGrad", typeof(RectTransform), typeof(Image));
-        botGrad.transform.SetParent(_overlay.transform, false);
-        var botImg = botGrad.GetComponent<Image>();
-        botImg.color = new Color(0, 0, 0, 0.3f);
-        botImg.raycastTarget = false;
-        var botRect = botGrad.GetComponent<RectTransform>();
-        botRect.anchorMin = Vector2.zero;
-        botRect.anchorMax = new Vector2(1, 0.15f);
-        botRect.offsetMin = Vector2.zero;
-        botRect.offsetMax = Vector2.zero;
-
-        // ── Title text — "BATTLE OF ORIGINS" ──
+        // ── Title — "BATTLE OF ORIGINS" ──
         var titleGO = new GameObject("Title", typeof(RectTransform), typeof(TextMeshProUGUI));
         titleGO.transform.SetParent(_overlay.transform, false);
         var titleTMP = titleGO.GetComponent<TextMeshProUGUI>();
         titleTMP.text = "BATTLE OF ORIGINS";
-        titleTMP.fontSize = 52;
+        titleTMP.fontSize = 56;
         titleTMP.fontStyle = FontStyles.Bold;
         titleTMP.color = Color.white;
         titleTMP.alignment = TextAlignmentOptions.Center;
@@ -117,7 +170,7 @@ public class TitleScreen : MonoBehaviour
         subTMP.text = "The Spirit World Awaits";
         subTMP.fontSize = 20;
         subTMP.fontStyle = FontStyles.Italic;
-        subTMP.color = new Color(1, 1, 1, 0.7f);
+        subTMP.color = new Color(1, 1, 1, 0.65f);
         subTMP.alignment = TextAlignmentOptions.Center;
         var subRect = subGO.GetComponent<RectTransform>();
         subRect.anchorMin = new Vector2(0, 0.76f);
@@ -125,27 +178,25 @@ public class TitleScreen : MonoBehaviour
         subRect.offsetMin = Vector2.zero;
         subRect.offsetMax = Vector2.zero;
 
-        // ── START button — right side, like the sketch ──
+        // ── START button — centered, below the character ──
         var btnGO = new GameObject("StartBtn", typeof(RectTransform), typeof(Image), typeof(Button));
         btnGO.transform.SetParent(_overlay.transform, false);
-        var btnImg = btnGO.GetComponent<Image>();
-        btnImg.color = new Color(0.95f, 0.95f, 0.92f, 0.9f);
+        btnGO.GetComponent<Image>().color = new Color(0.95f, 0.95f, 0.92f, 0.9f);
         var btnRect = btnGO.GetComponent<RectTransform>();
-        btnRect.anchorMin = new Vector2(0.65f, 0.35f);
-        btnRect.anchorMax = new Vector2(0.85f, 0.48f);
+        btnRect.anchorMin = new Vector2(0.35f, 0.12f);
+        btnRect.anchorMax = new Vector2(0.65f, 0.22f);
         btnRect.offsetMin = Vector2.zero;
         btnRect.offsetMax = Vector2.zero;
 
-        // Button outline (dark border)
         var outline = btnGO.AddComponent<UnityEngine.UI.Outline>();
-        outline.effectColor = new Color(0.15f, 0.15f, 0.15f, 0.8f);
+        outline.effectColor = new Color(0.2f, 0.2f, 0.2f, 0.7f);
         outline.effectDistance = new Vector2(2, -2);
 
         var btnTextGO = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
         btnTextGO.transform.SetParent(btnGO.transform, false);
         var btnTMP = btnTextGO.GetComponent<TextMeshProUGUI>();
         btnTMP.text = "START";
-        btnTMP.fontSize = 32;
+        btnTMP.fontSize = 36;
         btnTMP.fontStyle = FontStyles.Bold;
         btnTMP.color = new Color(0.15f, 0.15f, 0.15f);
         btnTMP.alignment = TextAlignmentOptions.Center;
@@ -155,7 +206,6 @@ public class TitleScreen : MonoBehaviour
         btRect.offsetMin = Vector2.zero;
         btRect.offsetMax = Vector2.zero;
 
-        // ── Button click → fade out → game begins ──
         btnGO.GetComponent<Button>().onClick.AddListener(OnStartPressed);
     }
 
@@ -165,42 +215,58 @@ public class TitleScreen : MonoBehaviour
         _isActive = false;
         HasStarted = true;
 
-        Debug.Log("[TitleScreen] START pressed — entering the spirit world!");
+        Debug.Log("[TitleScreen] START pressed!");
         StartCoroutine(FadeOutAndBegin());
     }
 
     IEnumerator FadeOutAndBegin()
     {
-        // Fade the overlay out over 1.5 seconds
         float duration = 1.5f;
         float elapsed = 0;
+
+        // Lerp camera back to saved position while fading
+        var cam = Camera.main;
 
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
             float t = elapsed / duration;
-            _overlayGroup.alpha = 1f - t;
+            float smooth = t * t * (3f - 2f * t); // smoothstep
+
+            _overlayGroup.alpha = 1f - smooth;
+
+            // Smooth camera back to gameplay position
+            if (cam != null)
+            {
+                cam.fieldOfView = Mathf.Lerp(40f, _savedCamFov, smooth);
+                // Let the camera controller take over — just restore FOV
+            }
+
             yield return null;
         }
 
         _overlayGroup.alpha = 0;
         _overlayGroup.blocksRaycasts = false;
 
-        // Unfreeze the player
+        // Restore camera
+        if (cam != null)
+            cam.fieldOfView = _savedCamFov;
+
+        // Unfreeze player and rotate back to normal
         var player = WorldManager.Instance?.WorldPlayer;
         if (player != null)
         {
             var cc = player.GetComponent<CharacterController>();
             if (cc != null) cc.enabled = true;
+            player.transform.rotation = Quaternion.identity;
         }
 
-        // Show the HUD elements that were hidden
-        OverworldIntegration.Instance?.ShowNotification("Welcome to the Spirit World.");
+        // Show HUD
+        ShowHUD();
 
-        // Clean up
-        yield return new WaitForSeconds(0.5f);
+        yield return new WaitForSeconds(0.3f);
         Destroy(_overlay);
 
-        Debug.Log("[TitleScreen] Fade complete — player is free!");
+        Debug.Log("[TitleScreen] Game started — HUD restored, player free");
     }
 }
