@@ -424,47 +424,40 @@ public class GameManager : MonoBehaviour
         Debug.Log("[GameManager] Clean battle UI built — light bg, cards left/right, FIGHT/RUN");
     }
 
-    /// <summary>Move player's active card to left side, enemy's to right side.</summary>
+    /// <summary>Split the two Player RectTransforms left/right across the canvas.</summary>
     void RepositionCardSlots()
     {
-        // Player active card — left-center
-        if (ClientPlayer.ActiveSlot != null)
+        // The key insight: CardSlots are children of Player RectTransforms.
+        // We must move the PLAYER containers, not the individual slots.
+        // Player.RectTrans is the public RectTransform field on each Player.
+
+        // ClientPlayer → left half of screen
+        if (ClientPlayer.RectTrans != null)
         {
-            var rect = ClientPlayer.ActiveSlot.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0.15f, 0.3f);
-            rect.anchorMax = new Vector2(0.4f, 0.85f);
+            var rect = ClientPlayer.RectTrans;
+            rect.anchorMin = new Vector2(0.05f, 0f);
+            rect.anchorMax = new Vector2(0.45f, 1f);
             rect.offsetMin = Vector2.zero;
             rect.offsetMax = Vector2.zero;
+            rect.sizeDelta = Vector2.zero; // stretch to anchors
         }
 
-        // Enemy active card — right-center
-        if (EnemyPlayer.ActiveSlot != null)
+        // EnemyPlayer → right half of screen
+        if (EnemyPlayer.RectTrans != null)
         {
-            var rect = EnemyPlayer.ActiveSlot.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0.6f, 0.3f);
-            rect.anchorMax = new Vector2(0.85f, 0.85f);
+            var rect = EnemyPlayer.RectTrans;
+            rect.anchorMin = new Vector2(0.55f, 0f);
+            rect.anchorMax = new Vector2(0.95f, 1f);
             rect.offsetMin = Vector2.zero;
             rect.offsetMax = Vector2.zero;
+            rect.sizeDelta = Vector2.zero; // stretch to anchors
         }
 
-        // Move player dice poses to below player card (left side)
-        if (ClientPlayer.DicePosesParent != null)
+        // Change camera background to off-white (kills the blue skybox)
+        if (Camera.main != null)
         {
-            var rect = ClientPlayer.DicePosesParent;
-            rect.anchorMin = new Vector2(0.15f, 0.08f);
-            rect.anchorMax = new Vector2(0.4f, 0.28f);
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
-        }
-
-        // Move enemy dice poses to below enemy card (right side)
-        if (EnemyPlayer.DicePosesParent != null)
-        {
-            var rect = EnemyPlayer.DicePosesParent;
-            rect.anchorMin = new Vector2(0.6f, 0.08f);
-            rect.anchorMax = new Vector2(0.85f, 0.28f);
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
+            Camera.main.clearFlags = CameraClearFlags.SolidColor;
+            Camera.main.backgroundColor = new Color(0.92f, 0.90f, 0.87f, 1f);
         }
     }
 
