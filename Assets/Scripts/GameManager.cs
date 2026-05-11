@@ -79,6 +79,15 @@ public class GameManager : MonoBehaviour
         Canvas = GetComponentInParent<Canvas>();
         Caster = GetComponentInParent<GraphicRaycaster>();
 
+        // Immediately hide the old battle canvas and set camera to off-white
+        // to prevent the blue skybox flash before our overlay builds
+        if (Canvas != null) Canvas.gameObject.SetActive(false);
+        if (Camera.main != null)
+        {
+            Camera.main.clearFlags = CameraClearFlags.SolidColor;
+            Camera.main.backgroundColor = new Color(0.92f, 0.90f, 0.87f, 1f);
+        }
+
         LeaveBtn.onClick.AddListener(LeaveGame);
 
         CancelReplaceBtn.gameObject.SetActiveCheck(false);
@@ -380,8 +389,8 @@ public class GameManager : MonoBehaviour
         _enemyHPText.color = new Color(0.15f, 0.15f, 0.15f);
         _enemyHPText.alignment = TextAlignmentOptions.Right;
 
-        // ── FIGHT button ──
-        var fightGO = CreateOverlayElement(ct, "FightBtn", new Vector2(0.76f, 0.03f), new Vector2(0.9f, 0.1f));
+        // ── FIGHT button (left of the pair) ──
+        var fightGO = CreateOverlayElement(ct, "FightBtn", new Vector2(0.62f, 0.03f), new Vector2(0.76f, 0.1f));
         fightGO.AddComponent<Image>().color = new Color(0.15f, 0.15f, 0.15f);
         fightGO.AddComponent<Button>();
         var fightText = CreateOverlayChild(fightGO.transform, "Text");
@@ -392,8 +401,8 @@ public class GameManager : MonoBehaviour
         fightTMP.color = Color.white;
         fightTMP.alignment = TextAlignmentOptions.Center;
 
-        // ── RUN button ──
-        var runGO = CreateOverlayElement(ct, "RunBtn", new Vector2(0.62f, 0.03f), new Vector2(0.74f, 0.1f));
+        // ── RUN button (right of the pair) ──
+        var runGO = CreateOverlayElement(ct, "RunBtn", new Vector2(0.78f, 0.03f), new Vector2(0.9f, 0.1f));
         runGO.AddComponent<Image>().color = new Color(0.6f, 0.15f, 0.1f);
         var runBtn = runGO.AddComponent<Button>();
         var runText = CreateOverlayChild(runGO.transform, "Text");
