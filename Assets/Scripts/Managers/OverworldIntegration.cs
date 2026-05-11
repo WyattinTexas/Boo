@@ -36,6 +36,14 @@ public class OverworldIntegration : MonoBehaviour
     // Milestone thresholds — segments between each
     static readonly int[] SKILL_MILESTONES = { 0, 100, 250, 500, 1000, 2000, 3500, 5000 };
     TextMeshProUGUI _notificationText;
+
+    // Big bottom XP bar
+    GameObject _xpBarPanel;
+    Image _xpBarCombatFill, _xpBarCraftFill, _xpBarExploreFill;
+    Image _xpBarGlow;
+    TextMeshProUGUI _xpBarLevelText, _xpBarValueText;
+    float _xpBarGlowTimer;
+
     GameObject _chatPanel;
     TMP_InputField _chatInput;
     Transform _chatMessageParent;
@@ -549,6 +557,7 @@ public class OverworldIntegration : MonoBehaviour
     {
         UpdateHUD();
         SpawnFloatingXPText(type, amount);
+        TriggerXPBarGlow();
     }
 
     void OnSkillUnlocked(string professionId, SkillBox box)
@@ -654,6 +663,9 @@ public class OverworldIntegration : MonoBehaviour
         _notificationText.enableWordWrapping = true;
         _notificationText.overflowMode = TMPro.TextOverflowModes.Ellipsis;
         _notificationText.gameObject.SetActive(false);
+
+        // === BIG XP BAR (full width, bottom of screen) ===
+        BuildBottomXPBar(canvasGO.transform);
 
         // === CHAT PANEL (bottom left) ===
         BuildChatPanel(canvasGO.transform);
@@ -2120,6 +2132,9 @@ public class OverworldIntegration : MonoBehaviour
         // Team HP bars
         UpdateTeamHPBars();
 
+        // Big bottom XP bar
+        UpdateBottomXPBar();
+
         // Progress tracker
         UpdateProgressTracker(data);
     }
@@ -2532,6 +2547,190 @@ public class OverworldIntegration : MonoBehaviour
             int zones = data.VisitedZones?.Count ?? 0;
             _progressStatsText.text = $"Cards: {cards} | Crafted: {crafted} | Zones: {zones}";
         }
+    }
+
+    // =========================================================================
+    // BIG BOTTOM XP BAR — full-width, sexy, satisfying
+    // =========================================================================
+
+    void BuildBottomXPBar(Transform parent)
+    {
+        // ── Outer panel — full width bar at very bottom ──
+        _xpBarPanel = new GameObject("XPBar", typeof(RectTransform), typeof(Image));
+        _xpBarPanel.transform.SetParent(parent, false);
+        var panelRect = _xpBarPanel.GetComponent<RectTransform>();
+        panelRect.anchorMin = new Vector2(0, 0);
+        panelRect.anchorMax = new Vector2(1, 0);
+        panelRect.pivot = new Vector2(0.5f, 0);
+        panelRect.sizeDelta = new Vector2(0, 32);
+        panelRect.anchoredPosition = Vector2.zero;
+        _xpBarPanel.GetComponent<Image>().color = new Color(0.02f, 0.02f, 0.05f, 0.85f);
+
+        // ── Inner bar container (slight inset for border feel) ──
+        var innerBar = new GameObject("InnerBar", typeof(RectTransform), typeof(Image));
+        innerBar.transform.SetParent(_xpBarPanel.transform, false);
+        var innerRect = innerBar.GetComponent<RectTransform>();
+        innerRect.anchorMin = new Vector2(0, 0);
+        innerRect.anchorMax = new Vector2(1, 1);
+        innerRect.offsetMin = new Vector2(2, 2);
+        innerRect.offsetMax = new Vector2(-2, -2);
+        innerBar.GetComponent<Image>().color = new Color(0.06f, 0.06f, 0.1f, 1f);
+
+        // ── Three fill bars stacked (combat red, craft orange, explore green) ──
+        // Each bar represents its XP as a fraction of the total 5000 max
+        _xpBarCombatFill = CreateXPFillBar(innerBar.transform, "CombatFill", new Color(0.85f, 0.2f, 0.15f, 0.9f));
+        _xpBarCraftFill = CreateXPFillBar(innerBar.transform, "CraftFill", new Color(0.75f, 0.5f, 0.1f, 0.9f));
+        _xpBarExploreFill = CreateXPFillBar(innerBar.transform, "ExploreFill", new Color(0.15f, 0.65f, 0.35f, 0.9f));
+
+        // ── Glow overlay (pulses when XP is gained) ──
+        var glowGO = new GameObject("Glow", typeof(RectTransform), typeof(Image));
+        glowGO.transform.SetParent(innerBar.transform, false);
+        var glowRect = glowGO.GetComponent<RectTransform>();
+        glowRect.anchorMin = Vector2.zero;
+        glowRect.anchorMax = Vector2.one;
+        glowRect.offsetMin = Vector2.zero;
+        glowRect.offsetMax = Vector2.zero;
+        _xpBarGlow = glowGO.GetComponent<Image>();
+        _xpBarGlow.color = new Color(1, 1, 1, 0);
+        _xpBarGlow.raycastTarget = false;
+
+        // ── Milestone tick marks ──
+        float maxXP = SKILL_MILESTONES[^1];
+        for (int i = 1; i < SKILL_MILESTONES.Length - 1; i++)
+        {
+            float pct = SKILL_MILESTONES[i] / maxXP;
+            var tick = new GameObject($"Tick_{i}", typeof(RectTransform), typeof(Image));
+            tick.transform.SetParent(innerBar.transform, false);
+            tick.GetComponent<Image>().color = new Color(1, 1, 1, 0.12f);
+            tick.GetComponent<Image>().raycastTarget = false;
+            var tickRect = tick.GetComponent<RectTransform>();
+            tickRect.anchorMin = new Vector2(pct, 0);
+            tickRect.anchorMax = new Vector2(pct, 1);
+            tickRect.sizeDelta = new Vector2(1, 0);
+        }
+
+        // ── Level text (left side) ──
+        var levelGO = new GameObject("LevelText", typeof(RectTransform), typeof(TextMeshProUGUI));
+        levelGO.transform.SetParent(_xpBarPanel.transform, false);
+        _xpBarLevelText = levelGO.GetComponent<TextMeshProUGUI>();
+        _xpBarLevelText.text = "LV 1";
+        _xpBarLevelText.fontSize = 18;
+        _xpBarLevelText.fontStyle = TMPro.FontStyles.Bold;
+        _xpBarLevelText.color = new Color(1f, 0.9f, 0.5f);
+        _xpBarLevelText.alignment = TextAlignmentOptions.MidlineLeft;
+        var lvlRect = levelGO.GetComponent<RectTransform>();
+        lvlRect.anchorMin = new Vector2(0, 0);
+        lvlRect.anchorMax = new Vector2(0, 1);
+        lvlRect.pivot = new Vector2(0, 0.5f);
+        lvlRect.sizeDelta = new Vector2(70, 0);
+        lvlRect.anchoredPosition = new Vector2(10, 0);
+
+        // ── XP value text (right side) ──
+        var valGO = new GameObject("ValueText", typeof(RectTransform), typeof(TextMeshProUGUI));
+        valGO.transform.SetParent(_xpBarPanel.transform, false);
+        _xpBarValueText = valGO.GetComponent<TextMeshProUGUI>();
+        _xpBarValueText.text = "0 / 5,000";
+        _xpBarValueText.fontSize = 14;
+        _xpBarValueText.color = new Color(0.7f, 0.7f, 0.8f);
+        _xpBarValueText.alignment = TextAlignmentOptions.MidlineRight;
+        var valRect = valGO.GetComponent<RectTransform>();
+        valRect.anchorMin = new Vector2(1, 0);
+        valRect.anchorMax = new Vector2(1, 1);
+        valRect.pivot = new Vector2(1, 0.5f);
+        valRect.sizeDelta = new Vector2(120, 0);
+        valRect.anchoredPosition = new Vector2(-10, 0);
+    }
+
+    Image CreateXPFillBar(Transform parent, string name, Color color)
+    {
+        var go = new GameObject(name, typeof(RectTransform), typeof(Image));
+        go.transform.SetParent(parent, false);
+        var img = go.GetComponent<Image>();
+        img.color = color;
+        img.raycastTarget = false;
+        var rect = go.GetComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = new Vector2(0, 1); // Width controlled by anchorMax.x
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+        return img;
+    }
+
+    void UpdateBottomXPBar()
+    {
+        if (_xpBarPanel == null) return;
+
+        float maxXP = SKILL_MILESTONES[^1];
+        float combatPct = Mathf.Clamp01(_displayCombat / maxXP);
+        float craftPct = Mathf.Clamp01(_displayCraft / maxXP);
+        float explorePct = Mathf.Clamp01(_displayExplore / maxXP);
+
+        // Stack the bars: combat takes its chunk, craft starts after, explore after that
+        // Each gets proportional space out of the total possible (3 × maxXP)
+        float totalMax = maxXP * 3f;
+        float combatWidth = _displayCombat / totalMax;
+        float craftWidth = _displayCraft / totalMax;
+        float exploreWidth = _displayExplore / totalMax;
+
+        // Combat: 0 → combatWidth
+        if (_xpBarCombatFill != null)
+        {
+            var r = _xpBarCombatFill.rectTransform;
+            r.anchorMin = Vector2.zero;
+            r.anchorMax = new Vector2(combatWidth, 1);
+        }
+        // Craft: combatWidth → combatWidth + craftWidth
+        if (_xpBarCraftFill != null)
+        {
+            var r = _xpBarCraftFill.rectTransform;
+            r.anchorMin = new Vector2(combatWidth, 0);
+            r.anchorMax = new Vector2(combatWidth + craftWidth, 1);
+        }
+        // Explore: after craft
+        if (_xpBarExploreFill != null)
+        {
+            var r = _xpBarExploreFill.rectTransform;
+            r.anchorMin = new Vector2(combatWidth + craftWidth, 0);
+            r.anchorMax = new Vector2(combatWidth + craftWidth + exploreWidth, 1);
+        }
+
+        // Level = highest milestone reached across any skill
+        float bestXP = Mathf.Max(_displayCombat, Mathf.Max(_displayCraft, _displayExplore));
+        int level = 1;
+        for (int i = 0; i < SKILL_MILESTONES.Length; i++)
+        {
+            if (bestXP >= SKILL_MILESTONES[i]) level = i + 1;
+        }
+        if (_xpBarLevelText != null)
+            _xpBarLevelText.text = $"LV {level}";
+
+        // Total XP display
+        float totalXP = _displayCombat + _displayCraft + _displayExplore;
+        if (_xpBarValueText != null)
+            _xpBarValueText.text = $"{totalXP:N0} / {totalMax:N0}";
+
+        // Glow pulse (fades out over time)
+        if (_xpBarGlow != null)
+        {
+            if (_xpBarGlowTimer > 0)
+            {
+                _xpBarGlowTimer -= Time.deltaTime;
+                float alpha = Mathf.Clamp01(_xpBarGlowTimer / 0.6f) * 0.2f;
+                // Pulse
+                alpha += Mathf.Sin(Time.time * 8f) * 0.05f * Mathf.Clamp01(_xpBarGlowTimer);
+                _xpBarGlow.color = new Color(1, 1, 1, Mathf.Max(0, alpha));
+            }
+            else
+            {
+                _xpBarGlow.color = new Color(1, 1, 1, 0);
+            }
+        }
+    }
+
+    /// <summary>Call this when XP is gained to trigger the glow pulse.</summary>
+    void TriggerXPBarGlow()
+    {
+        _xpBarGlowTimer = 1.2f;
     }
 
     static GameObject CreateButton(Transform parent, string name, string label, Color bgColor, Action onClick)
