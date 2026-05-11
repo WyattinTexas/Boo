@@ -79,9 +79,8 @@ public class GameManager : MonoBehaviour
         Canvas = GetComponentInParent<Canvas>();
         Caster = GetComponentInParent<GraphicRaycaster>();
 
-        // Immediately hide the old battle canvas and set camera to off-white
-        // to prevent the blue skybox flash before our overlay builds
-        if (Canvas != null) Canvas.gameObject.SetActive(false);
+        // Set camera bg to off-white immediately to prevent blue flash
+        // NOTE: Do NOT SetActive(false) on Canvas here — GameManager is a child of it!
         if (Camera.main != null)
         {
             Camera.main.clearFlags = CameraClearFlags.SolidColor;
@@ -301,8 +300,16 @@ public class GameManager : MonoBehaviour
 
     void BuildBattleOverlay()
     {
-        // Hide the original battle canvas so it doesn't show through
-        if (Canvas != null) Canvas.gameObject.SetActive(false);
+        // Hide the original battle canvas VISUALS (but keep the GameObject active
+        // because GameManager is a child of it and needs to run coroutines)
+        if (Canvas != null)
+        {
+            var canvasGroup = Canvas.gameObject.GetComponent<CanvasGroup>();
+            if (canvasGroup == null) canvasGroup = Canvas.gameObject.AddComponent<CanvasGroup>();
+            canvasGroup.alpha = 0;           // Invisible
+            canvasGroup.blocksRaycasts = false; // Don't intercept clicks
+            canvasGroup.interactable = false;
+        }
 
         // ── Create fresh ScreenSpaceOverlay canvas ──
         var canvasGO = new GameObject("BattleOverlay");
