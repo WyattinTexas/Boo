@@ -139,10 +139,10 @@ public class PlaytestAgent : MonoBehaviour
         _blockers.Clear();
         _highlights.Clear();
 
-        Log("════════════════════════════════════════════════════");
-        Log($"  {_agentName}");
-        Log($"  \"{info.motto}\"");
-        Log("════════════════════════════════════════════════════");
+        LogHeader("════════════════════════════════════════════════════");
+        LogHeader($"  {_agentName}");
+        Log($"\"{info.motto}\"");
+        LogHeader("════════════════════════════════════════════════════");
         LogStartState();
 
         _agentCoroutine = StartCoroutine(RunAgent());
@@ -154,9 +154,9 @@ public class PlaytestAgent : MonoBehaviour
         State = AgentState.Done;
         if (_agentCoroutine != null) { StopCoroutine(_agentCoroutine); _agentCoroutine = null; }
 
-        Log("════════════════════════════════════════════════════");
-        Log($"  {_agentName} — FINAL REPORT");
-        Log("════════════════════════════════════════════════════");
+        LogHeader("════════════════════════════════════════════════════");
+        LogHeader($"  {_agentName} — FINAL REPORT");
+        LogHeader("════════════════════════════════════════════════════");
         Log($"Result: {reason}");
         Log($"Runtime: {FormatTime(_totalRunTime)} | Actions: {_actionsCompleted}");
         Log($"Battles: {_battlesFought} fought, {_battlesWon} won ({(_battlesFought > 0 ? (100f * _battlesWon / _battlesFought).ToString("F0") : "0")}% winrate)");
@@ -164,18 +164,18 @@ public class PlaytestAgent : MonoBehaviour
 
         if (_highlights.Count > 0)
         {
-            Log($"HIGHLIGHTS ({_highlights.Count}):");
-            foreach (var h in _highlights) Log($"  ★ {h}");
+            LogHeader($"HIGHLIGHTS ({_highlights.Count}):");
+            foreach (var h in _highlights) LogHighlight(h);
         }
 
         if (_blockers.Count > 0)
         {
-            Log($"BLOCKERS ({_blockers.Count}):");
-            foreach (var b in _blockers) Log($"  ✗ {b}");
+            LogHeader($"BLOCKERS ({_blockers.Count}):");
+            foreach (var b in _blockers) LogBlocker(b);
         }
         else
         {
-            Log("✓ No blockers — gameplay loop completed clean!");
+            LogHighlight("No blockers — gameplay loop completed clean!");
         }
 
         LogFinalState();
@@ -668,10 +668,74 @@ public class PlaytestAgent : MonoBehaviour
     }
 
     // =========================================================================
-    // LOGGING
+    // COLOR-CODED LOGGING
     // =========================================================================
+    // Max (Collector) = Red #FF4444
+    // Diego (Explorer) = Green #44CC44
+    // Yuki (Crafter)  = Gold #DDAA22
 
-    void Log(string msg) => Debug.Log($"[{_agentTitle}] {msg}");
+    static readonly Dictionary<AgentType, string> LOG_COLORS = new()
+    {
+        [AgentType.Collector] = "#FF4444",
+        [AgentType.Explorer] = "#44CC44",
+        [AgentType.Crafter] = "#DDAA22",
+    };
+
+    void Log(string msg)
+    {
+        string color = LOG_COLORS.TryGetValue(Type, out var c) ? c : "#FFFFFF";
+
+        // Unity editor rich text
+        Debug.Log($"<color={color}>[{_agentTitle}]</color> {msg}");
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        // Browser console with CSS color
+        string escaped = msg.Replace("'", "\\'").Replace("\n", "\\n");
+        Application.ExternalEval(
+            $"console.log('%c[{_agentTitle}]%c {escaped}', " +
+            $"'color:{color};font-weight:bold;font-size:13px', " +
+            $"'color:{color};font-size:12px')");
+#endif
+    }
+
+    void LogHeader(string msg)
+    {
+        string color = LOG_COLORS.TryGetValue(Type, out var c) ? c : "#FFFFFF";
+        Debug.Log($"<color={color}><b>{msg}</b></color>");
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        string escaped = msg.Replace("'", "\\'").Replace("\n", "\\n");
+        Application.ExternalEval(
+            $"console.log('%c{escaped}', " +
+            $"'color:{color};font-weight:bold;font-size:14px;background:#111;padding:2px 8px;border-radius:3px')");
+#endif
+    }
+
+    void LogBlocker(string msg)
+    {
+        Debug.LogWarning($"[{_agentTitle}] BLOCKER: {msg}");
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        string escaped = msg.Replace("'", "\\'").Replace("\n", "\\n");
+        Application.ExternalEval(
+            $"console.warn('%c✗ BLOCKER:%c {escaped}', " +
+            $"'color:#FF6666;font-weight:bold;font-size:13px', " +
+            $"'color:#FF9999;font-size:12px')");
+#endif
+    }
+
+    void LogHighlight(string msg)
+    {
+        string color = LOG_COLORS.TryGetValue(Type, out var c) ? c : "#FFFFFF";
+        Debug.Log($"<color={color}><b>★ {msg}</b></color>");
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        string escaped = msg.Replace("'", "\\'").Replace("\n", "\\n");
+        Application.ExternalEval(
+            $"console.log('%c★ {escaped}', " +
+            $"'color:{color};font-weight:bold;font-size:13px;text-shadow:0 0 4px {color}')");
+#endif
+    }
 
     void LogStartState()
     {
